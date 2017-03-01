@@ -10,7 +10,7 @@ import tensorflow.contrib.seq2seq as seq2seq
 from tensorflow.contrib.layers import safe_embedding_lookup_sparse as embedding_lookup_unique
 from tensorflow.contrib.rnn import LSTMCell, LSTMStateTuple, GRUCell
 
-import helpers
+import seq_utils
 
 
 class Seq2SeqModel():
@@ -280,8 +280,8 @@ class Seq2SeqModel():
         self.train_op = tf.train.AdamOptimizer().minimize(self.loss)
 
     def make_train_inputs(self, input_seq, target_seq):
-        inputs_, inputs_length_ = helpers.batch(input_seq)
-        targets_, targets_length_ = helpers.batch(target_seq)
+        inputs_, inputs_length_ = seq_utils.batch(input_seq)
+        targets_, targets_length_ = seq_utils.batch(target_seq)
         return {
             self.encoder_inputs: inputs_,
             self.encoder_inputs_length: inputs_length_,
@@ -290,7 +290,7 @@ class Seq2SeqModel():
         }
 
     def make_inference_inputs(self, input_seq):
-        inputs_, inputs_length_ = helpers.batch(input_seq)
+        inputs_, inputs_length_ = seq_utils.batch(input_seq)
         return {
             self.encoder_inputs: inputs_,
             self.encoder_inputs_length: inputs_length_,
@@ -317,7 +317,7 @@ def train_on_copy_task(session, model,
                        batches_in_epoch=1000,
                        verbose=True):
 
-    batches = helpers.random_sequences(length_from=length_from, length_to=length_to,
+    batches = seq_utils.random_sequences(length_from=length_from, length_to=length_to,
                                        vocab_lower=vocab_lower, vocab_upper=vocab_upper,
                                        batch_size=batch_size)
     loss_track = []

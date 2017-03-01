@@ -1,11 +1,10 @@
 import numpy as np
 import tensorflow as tf
 from tensorflow.contrib.rnn import LSTMCell, GRUCell
-from model_new import Seq2SeqModel, train_on_copy_task
+from Seq2Seq import Seq2SeqModel, train_on_copy_task
 import pandas as pd
-import helpers
+import seq_utils
 from tqdm import tqdm
-import althingi_utils
 
 tf.reset_default_graph()
 tf.set_random_seed(1)
@@ -42,13 +41,13 @@ def train_on_copy_task_v2():
 
     with tf.Session() as session:
         session.run(tf.global_variables_initializer())
-        data = helpers.random_sequences(length_from=0, length_to=10, vocab_lower=0, vocab_upper=2, batch_size=10)
+        data = seq_utils.random_sequences(length_from=0, length_to=10, vocab_lower=0, vocab_upper=2, batch_size=10)
         loss_track = []
 
         for i in tqdm(range(last_step)):
             input_seq = next(data)
-            inputs_, input_length = helpers.batch(input_seq)
-            targets_, targets_length = helpers.batch(input_seq)
+            inputs_, input_length = seq_utils.batch(input_seq)
+            targets_, targets_length = seq_utils.batch(input_seq)
             feed_dict = {model.encoder_inputs: inputs_,
                          model.encoder_inputs_length: input_length,
                          model.decoder_targets: targets_,
@@ -81,7 +80,7 @@ def train_on_fibonacci_split():
 
     with tf.Session() as session:
         session.run(tf.global_variables_initializer())
-        iterator = helpers.FibonacciSequenceIterator()
+        iterator = seq_utils.FibonacciSequenceIterator()
         loss_track = []
 
         for i in tqdm(range(last_step)):
@@ -110,57 +109,4 @@ def train_on_fibonacci_split():
                 print()
 
 
-def fetch_althingi():
-    df = althingi_utils.make_df()
-    wsv = althingi_utils.create_spelling_vocab(df)
-    noise_threshold = 0.8
-    sentences = althingi_utils.get_sentence_lists(df, wsv, noise_threshold)
-    return sentences, althingi_utils.char2idx, althingi_utils.idx2char, althingi_utils.vocab_len
-
-
-def train_on_althingi():
-    ## Get Data
-    sentences, althingi_utils.char2idx, althingi_utils.idx2char, althingi_utils.vocab_len = fetch_althingi()
-
-    ## Get Model
-    model = Seq2SeqModel(encoder_cell = LSTMCell(128),
-                         decoder_cell=LSTMCell(256),
-                         vocab_size=althingi_utils.vocab_len,
-                         embedding_size=32)
-
-    sample_step = 100
-    last_step = 1000
-
-    with tf.Session() as session:
-        session.run(tf.global_variables_initializer())
-
-        iterator = althingi_utils.SentenceIterator(sentences)
-        loss_track = []
-
-        for i in tqdm(range(last_step)):
-            inputs_, input_length, targets_, targets_length = iterator.next_batch()
-            feed_dict = {model.encoder_inputs: inputs_,
-                         model.encoder_inputs_length: input_length,
-                         model.decoder_targets: targets_,
-                         model.decoder_targets_length: targets_length,
-                        }
-            _, l = session.run([model.train_op, model.loss], feed_dict)
-            loss_track.append(l)
-
-            if i == 0 or i % sample_step == 0:
-                print('batch {}'.format(i))
-                print(' minibatch_loss: {}'.format(session.run(model.loss, feed_dict)))
-                # Transposed for batch major
-                for i, (e_in, dt_pred) in enumerate(zip(
-                        feed_dict[model.decoder_targets].T,
-                        session.run(model.decoder_prediction_train, feed_dict).T
-                    )):
-                    print('  sample {}:'.format(i + 1))
-                    print('    enc input           > {}'.format(e_in))
-                    print('    dec train predicted > {}'.format(dt_pred))
-                    if i >= 2:
-                        break
-                print()
-
-
-train_on_althingi()
+train_on_fibonacci_split()
