@@ -12,7 +12,7 @@ from scipy.ndimage.interpolation import shift
 import pdb
 from IPython.display import HTML
 
-def make_FLAGS(): 
+def make_FLAGS():
     ### HyperParameters ###
     flags = tf.flags
     flags.DEFINE_integer('batch_size', 100, 'mini-batch size')
@@ -23,7 +23,7 @@ def make_FLAGS():
     flags.DEFINE_float('lr_decay', 1, 'learning rate decay')
     flags.DEFINE_float('init_mom', 0.5, 'initial momentum')
     flags.DEFINE_float('final_mom', 0.9, 'final momentum')
-    
+
     return flags.FLAGS
 
 basis_len = 50
@@ -45,7 +45,6 @@ class PlouffeGraph(object):
         but this will do for now as a placeholder for our nx.Graph object - but is class inheritance evil?
         '''
         self.graph = nx.Graph(data = self.data)
-        
     def DrawGraph(self):
         '''
         Simple utility function to draw the graph with matplotlib
@@ -88,20 +87,20 @@ class PlouffeSequence(object):
         self.step = (self.limit - self.cursor)/float(self.n_frames)
         self.pos = nx.circular_layout(self.plouffe.graph) # Set position of nodes in G
         self.fig = plt.figure(figsize=(8,8))
-    
+
     def _update_graph(self):
         self.plouffe.graph.remove_edges_from(self.plouffe.data)
         self.plouffe.data = [(i, int(i*self.cursor)%self.n_nodes) for i in range(self.n_nodes)]
         self.plouffe.graph.add_edges_from(self.plouffe.data)
-    
+
     def add2graph(list_of_tuples):
         self.plouffe.graph.remove_edges_from(self.plouffe.data)
         self.plouffe.data = list_of_tuples
         self.plouffe.graph.add_edges_from(self.plouffe.data)
-        
+
     def _new_graph(self):
         self.plouffe = PlouffeGraph(self.n_nodes,self.cursor)
-    
+
     def generate(self):
         '''
         Starting from the initial frame this method generates a sequence of n_frames between k and limit
@@ -120,7 +119,7 @@ class PlouffeSequence(object):
         input_data = self.generate(k)
         output_data = np.roll(input_data,-1)
         prediction = model.predict(input_data)
-        
+
     def next_frame2draw(self,step):
         self.fig.clf()
         self.cursor += step
@@ -148,7 +147,7 @@ class Plouffe_df(object):
         self.n_nodes = np.random.randint(10,size=n_graphs)
         self.k = np.random.randint(100,size=n_graphs)
         self.limit = self.k + np.random.randint(400,size=n_graphs)
-        self.df = self.build_df() 
+        self.df = self.build_df()
 
     def _set_plouffe_graph(self, row):
         N = row['Sets']
@@ -160,7 +159,7 @@ class Plouffe_df(object):
         k = row['Powers']
         limit = row['Limits']
         return PlouffeSequence(N, k, limit, self.n_frames)
-    
+
     def build_df(self):
         df = pd.DataFrame({'Sets':self.n_nodes, 'Powers':self.k, 'Limits':self.limit})
         df['Plouffe'] = df.apply(self._set_plouffe_graph,axis=1)
@@ -170,7 +169,7 @@ class Plouffe_df(object):
 class PlouffeIterator(object):
     '''
     NOT FINISHED
-    This iterator takes a dataframe of PlouffeSequences and transforms it into a list of such sequences 
+    This iterator takes a dataframe of PlouffeSequences and transforms it into a list of such sequences
     It then creates batches of such sequences
     each sequence has number of steps self.n_frames with each element of the sequence having dimensions n_nodes x 2
     '''
@@ -182,7 +181,7 @@ class PlouffeIterator(object):
             self.cursor = 0
             self.shuffle()
             self.epochs = 0
-    
+
     def shuffle(self):
         #sorts dataframe by sequence length, but keeps it random within the same length
         random.shuffle(self.seq)
@@ -204,120 +203,270 @@ class PlouffeIterator(object):
             x_i[1:batch_len[i]+1] = batch_seq[i]
         #### OUTPUT - simply the input shifted by 1
         y = np.roll(x,-1)
-        
+
         return x, y, batch_len
 
-class SequenceClassification(object):
+# ATH NO EMBEDDINGS
+class Seq2SeqModel():
 
-    def __init__(self, FLAGS=None):
-        self.state_size = FLAGS.state_size,
-        self.num_classes = FLAGS.num_classes
-        self.batch_size = FLAGS.batch_size,
-        self.num_steps = FLAGS.num_steps,
-        self.num_layers = FLAGS.num_layers,
-        self.learning_rate = FLAGS.learning_rate
+    EOS = 0
+    PAD = 1
+    def __init__(self, encoder_cell, decoder_cell, num_nodes, bidirectional = True, attention=False)
+        self.bidirectional = bidirectional
+        self.attention = attention
+        self.num_nodes = num_nodes
 
-        self.graph = self.build_graph()
-    
-    def build_graph(self):
-        '''
-        builds the tensorflow graph and returns a dictionary of placeholders and corresponding variables
-        '''
-        x = tf.placeholder(tf.int32, [self.batch_size, self.num_steps], name='input_placeholder')
-        y = tf.placeholder(tf.int32, [self.batch_size, self.num_steps], name='labels_placeholder')
+        self.encoder_cell = encoder_cell
+        self.decoder_cell = decoder_cell
 
-        embeddings = tf.get_variable('embedding_matrix', [self.num_classes, self.state_size])
+        self._make_graph()
 
-        # Note that our inputs are no longer a list, but a tensor of dims batch_size x num_steps x state_size
-        rnn_inputs = tf.nn.embedding_lookup(embeddings, x)
-        
-        cell = tf.nn.rnn_cell.LSTMCell(self.state_size, state_is_tuple=True)
-        cell = tf.nn.rnn_cell.MultiRNNCell([cell] * self.num_layers, state_is_tuple=True)
-        init_state = cell.zero_state(self.batch_size, tf.float32)
-        rnn_outputs, final_state = tf.nn.dynamic_rnn(cell, rnn_inputs, initial_state=init_state)
+    @property
+    def decoder_hidden_units(self):
+        return self.decoder_cell.output_size
 
-        with tf.variable_scope('softmax'):
-            W = tf.get_variable('W', [self.state_size, self.num_classes])
-            b = tf.get_variable('b', [self.num_classes], initializer=tf.constant_initializer(0.0))
+    def _init_placeholders():
+        """ Everything is time-major """
+        self.encoder_inputs = tf.placeholder(
+            shape=(None, None),
+            dtype=tf.int32,
+            name='encoder_inputs',
+        )
+        self.encoder_inputs_length = tf.placeholder(
+            shape=(None,),
+            dtype=tf.int32,
+            name='encoder_inputs_length',
+        )
 
-        #reshape rnn_outputs and y so we can get the logits in a single matmul
-        rnn_outputs = tf.reshape(rnn_outputs, [-1, self.state_size])
-        y_reshaped = tf.reshape(y, [-1])
-
-        logits = tf.matmul(rnn_outputs, W) + b
-
-        total_loss = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(logits, y_reshaped))
-        train_step = tf.train.AdamOptimizer(self.learning_rate).minimize(total_loss)
-
-        return dict(x = x,
-                    y = y,
-                    init_state = init_state,
-                    final_state = final_state,
-                    total_loss = total_loss,
-                    train_step = train_step)
-
-    def reset_graph():
-        '''
-        utilty function to make sure that the graph is clean before we build it
-        '''
-        if 'sess' in globals() and sess:
-            sess.close()
-        tf.reset_default_graph()
-    
+        # required for training, not required for testing
+        self.decoder_targets = tf.placeholder(
+            shape=(None, None),
+            dtype=tf.int32,
+            name='decoder_targets'
+        )
+        self.decoder_targets_length = tf.placeholder(
+            shape=(None,),
+            dtype=tf.int32,
+            name='decoder_targets_length',
+        )
 
 
-    def train_on_plouffe(graph):
-        sess = tf.Session()
-        init = tf.initialize_all_variables()
-        sess.run(init)
-        sequences = fetch_plouffe()
+    def _init_decoder_train_connectors(self):
+        """
+        During training, `decoder_targets`
+        and decoder logits. This means that their shapes should be compatible.
 
-        train_seq = sequences[:int(len(sequences)*0.8)]
-        valid_seq = sequences[int(len(sequences)*0.8):int(len(sequences)*0.95)]
-        test_seq = sequences[int(len(sequences)*0.95):int(len(sequences))]
-    
-        train_iterator = PlouffeIterator(train_seq)
-        valid_iterator = PlouffeIterator(valid_seq)
-        test_iterator = PlouffeIterator(test_seq)
+        Here we do a bit of plumbing to set this up.
+        """
+        with tf.name_scope('DecoderTrainFeeds'):
+            sequence_size, batch_size = tf.unstack(tf.shape(self.decoder_targets))
 
-        step, mean_loss = 0,0
-        train_losses, valid_losses = [], []
-        current_epoch = 0
-        while current_epoch < n_epochs:
-            step += 1
-            batch = train_iterator.next_batch(self.batch_size)
-            feed = {graph['X']: batch[0], graph['Y']: batch[1],graph['seqlen']: batch[2] }
 
-            mean_loss_batch, _ = sess.run([graph['mean_loss'],graph['updates']], feed_dict=feed)
-            mean_loss += mean_loss_batch
+            EOS_SLICE = tf.ones([1, batch_size], dtype=tf.int32) * self.EOS
+            PAD_SLICE = tf.ones([1, batch_size], dtype=tf.int32) * self.PAD
 
-        if train_iterator.epochs > current_epoch:
-            current_epoch += 1
-            train_losses.append(mean_loss / step)
-            step, mean_loss = 0, 0
+            self.decoder_train_inputs = tf.concat([EOS_SLICE, self.decoder_targets], axis=0)
+            self.decoder_train_length = self.decoder_targets_length + 1
 
-            # eval test set
-            valid_epoch = valid_iterator.epochs
-            while valid_iterator.epochs == valid_epoch:
-                step += 1
-                batch = valid_iterator.next_batch(self.batch_size)
-                feed = {graph['X']: batch[0], graph['Y']: batch[1],graph['seqlen']: batch[2]}
-                mean_loss_batch = sess.run([graph['mean_loss']], feed_dict=feed)[0]
-                mean_loss += mean_loss_batch
+            decoder_train_targets = tf.concat([self.decoder_targets, PAD_SLICE], axis=0)
+            decoder_train_targets_seq_len, _ = tf.unstack(tf.shape(decoder_train_targets))
+            decoder_train_targets_eos_mask = tf.one_hot(self.decoder_train_length - 1,
+                                                        decoder_train_targets_seq_len,
+                                                        on_value=self.EOS, off_value=self.PAD,
+                                                        dtype=tf.int32)
+            decoder_train_targets_eos_mask = tf.transpose(decoder_train_targets_eos_mask, [1, 0])
 
-            valid_losses.append(mean_loss / step)
-            step, mean_loss = 0,0
-            print('Accuracy after epoch', current_epoch, ' - train loss:', train_losses[-1], '- validation loss:', valid_losses[-1])
+            # hacky way using one_hot to put EOS symbol at the end of target sequence
+            decoder_train_targets = tf.add(decoder_train_targets,
+                                           decoder_train_targets_eos_mask)
 
-            if current_epoch % 2 == 0:
-                batch = test_iterator.next_batch(10)
-                feed = {graph['X']:batch[0], graph['Y']:batch[1], graph['seqlen']:batch[2]}
-                p = sess.run([graph['Y_pred']], feed_dict = feed)
-                print('Prediction:',p)
-                print('Real Output:', batch[1])
+            self.decoder_train_targets = decoder_train_targets
 
-        return train_losses, valid_losses
+            self.loss_weights = tf.ones([
+                batch_size,
+                tf.reduce_max(self.decoder_train_length)
+            ], dtype=tf.float32, name="loss_weights")
 
-if __name__ == "__main__":
-    graph = build_graph()
-    train_graph(graph)
+
+    def _make_graph(self):
+        self._init_placeholders()
+        self._init_decoder_train_connectors()
+        if self.bidirectional:
+            self._init_bidirectional_encoder()
+        else:
+            self._init_simple_encoder()
+
+        self._init_decoder()
+
+        self._init_optimizer()
+
+
+    def _init_simple_encoder(self):
+        with tf.variable_scope("Encoder") as scope:
+            (self.encoder_outputs, self.encoder_state) = (
+                tf.nn.dynamic_rnn(cell=self.encoder_cell,
+                                  inputs=self.encoder_inputs_embedded,
+                                  sequence_length=self.encoder_inputs_length,
+                                  time_major=True,
+                                  dtype=tf.float32)
+                )
+
+
+    def _init_bidirectional_encoder(self):
+        with tf.variable_scope("BidirectionalEncoder") as scope:
+
+            ((encoder_fw_outputs,
+              encoder_bw_outputs),
+             (encoder_fw_state,
+              encoder_bw_state)) = (
+                tf.nn.bidirectional_dynamic_rnn(cell_fw=self.encoder_cell,
+                                                cell_bw=self.encoder_cell,
+                                                inputs=self.encoder_inputs_embedded,
+                                                sequence_length=self.encoder_inputs_length,
+                                                time_major=True,
+                                                dtype=tf.float32)
+                )
+
+            self.encoder_outputs = tf.concat((encoder_fw_outputs, encoder_bw_outputs), 2)
+
+            if isinstance(encoder_fw_state, LSTMStateTuple):
+
+                encoder_state_c = tf.concat(
+                    (encoder_fw_state.c, encoder_bw_state.c), 1, name='bidirectional_concat_c')
+                encoder_state_h = tf.concat(
+                    (encoder_fw_state.h, encoder_bw_state.h), 1, name='bidirectional_concat_h')
+                self.encoder_state = LSTMStateTuple(c=encoder_state_c, h=encoder_state_h)
+
+            elif isinstance(encoder_fw_state, tf.Tensor):
+                self.encoder_state = tf.concat((encoder_fw_state, encoder_bw_state), 1, name='bidirectional_concat')
+
+    def _init_decoder(self):
+        with tf.variable_scope("Decoder") as scope:
+            def output_fn(outputs):
+                return tf.contrib.layers.linear(outputs, self.vocab_size, scope=scope)
+
+            if not self.attention:
+                decoder_fn_train = seq2seq.simple_decoder_fn_train(encoder_state=self.encoder_state)
+                decoder_fn_inference = seq2seq.simple_decoder_fn_inference(
+                    output_fn=output_fn,
+                    encoder_state=self.encoder_state,
+                    embeddings=self.embedding_matrix,
+                    start_of_sequence_id=self.EOS,
+                    end_of_sequence_id=self.EOS,
+                    maximum_length=tf.reduce_max(self.encoder_inputs_length) + 3,
+                    num_decoder_symbols=self.vocab_size,
+                )
+            else:
+
+                # attention_states: size [batch_size, max_time, num_units]
+                attention_states = tf.transpose(self.encoder_outputs, [1, 0, 2])
+
+                (attention_keys,
+                attention_values,
+                attention_score_fn,
+                attention_construct_fn) = seq2seq.prepare_attention(
+                    attention_states=attention_states,
+                    attention_option="bahdanau",
+                    num_units=self.decoder_hidden_units,
+                )
+
+                decoder_fn_train = seq2seq.attention_decoder_fn_train(
+                    encoder_state=self.encoder_state,
+                    attention_keys=attention_keys,
+                    attention_values=attention_values,
+                    attention_score_fn=attention_score_fn,
+                    attention_construct_fn=attention_construct_fn,
+                    name='attention_decoder'
+                )
+
+                decoder_fn_inference = seq2seq.attention_decoder_fn_inference(
+                    output_fn=output_fn,
+                    encoder_state=self.encoder_state,
+                    attention_keys=attention_keys,
+                    attention_values=attention_values,
+                    attention_score_fn=attention_score_fn,
+                    attention_construct_fn=attention_construct_fn,
+                    embeddings=self.embedding_matrix,
+                    start_of_sequence_id=self.EOS,
+                    end_of_sequence_id=self.EOS,
+                    maximum_length=tf.reduce_max(self.encoder_inputs_length) + 3,
+                    num_decoder_symbols=self.vocab_size,
+                )
+
+            (self.decoder_outputs_train,
+             self.decoder_state_train,
+             self.decoder_context_state_train) = (
+                seq2seq.dynamic_rnn_decoder(
+                    cell=self.decoder_cell,
+                    decoder_fn=decoder_fn_train,
+                    inputs=self.decoder_train_inputs_embedded,
+                    sequence_length=self.decoder_train_length,
+                    time_major=True,
+                    scope=scope,
+                )
+            )
+
+            self.decoder_logits_train = output_fn(self.decoder_outputs_train)
+            self.decoder_prediction_train = tf.argmax(self.decoder_logits_train, axis=-1, name='decoder_prediction_train')
+
+            scope.reuse_variables()
+
+            (self.decoder_logits_inference,
+             self.decoder_state_inference,
+             self.decoder_context_state_inference) = (
+                seq2seq.dynamic_rnn_decoder(
+                    cell=self.decoder_cell,
+                    decoder_fn=decoder_fn_inference,
+                    time_major=True,
+                    scope=scope,
+                )
+            )
+            self.decoder_prediction_inference = tf.argmax(self.decoder_logits_inference, axis=-1, name='decoder_prediction_inference')
+
+    def _init_optimizer(self):
+        logits = tf.transpose(self.decoder_logits_train, [1, 0, 2])
+        targets = tf.transpose(self.decoder_train_targets, [1, 0])
+        self.loss = seq2seq.sequence_loss(logits=logits, targets=targets,
+                                          weights=self.loss_weights)
+        self.train_op = tf.train.AdamOptimizer().minimize(self.loss)
+
+
+# Ath fix for Plouffe
+def train_on_fibonacci_split():
+    model = Seq2SeqModel(encoder_cell = LSTMCell(10), decoder_cell=LSTMCell(20), vocab_size=10, embedding_size=10)
+
+    sample_step = 100
+    last_step = 1000
+
+    with tf.Session() as session:
+        session.run(tf.global_variables_initializer())
+        iterator = seq_utils.FibonacciSequenceIterator()
+        loss_track = []
+
+        for i in tqdm(range(last_step)):
+            inputs_, input_length, targets_, targets_length = iterator.next_batch()
+            feed_dict = {model.encoder_inputs: inputs_,
+                         model.encoder_inputs_length: input_length,
+                         model.decoder_targets: targets_,
+                         model.decoder_targets_length: targets_length,
+                        }
+            _, l = session.run([model.train_op, model.loss], feed_dict)
+            loss_track.append(l)
+
+            if i == 0 or i % sample_step == 0:
+                print('batch {}'.format(i))
+                print(' minibatch_loss: {}'.format(session.run(model.loss, feed_dict)))
+                # Transposed for batch major
+                for i, (e_in, dt_pred) in enumerate(zip(
+                        feed_dict[model.decoder_targets].T,
+                        session.run(model.decoder_prediction_train, feed_dict).T
+                    )):
+                    print('  sample {}:'.format(i + 1))
+                    print('    enc input           > {}'.format(e_in))
+                    print('    dec train predicted > {}'.format(dt_pred))
+                    if i >= 2:
+                        break
+                print()
+
+
+train_on_fibonacci_split()
