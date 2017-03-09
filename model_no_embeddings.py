@@ -20,7 +20,7 @@ class Seq2SeqModel():
     PAD = 0
     EOS = 1
 
-    def __init__(self, encoder_cell, decoder_cell, vocab_size, embedding_size,
+    def __init__(self, encoder_cell, decoder_cell, vocab_size, num_features,
                  bidirectional=True,
                  attention=False,
                  debug=False):
@@ -29,7 +29,7 @@ class Seq2SeqModel():
         self.attention = attention
 
         self.vocab_size = vocab_size
-        self.embedding_size = embedding_size
+        self.num_features = num_features
 
         self.encoder_cell = encoder_cell
         self.decoder_cell = decoder_cell
@@ -48,7 +48,7 @@ class Seq2SeqModel():
             self._init_placeholders()
 
         self._init_decoder_train_connectors()
-        # Remove for higher dimensional cases
+        # TODO Remove for higher dimensional cases
         self._init_embeddings()
 
         if self.bidirectional:
@@ -75,7 +75,7 @@ class Seq2SeqModel():
     def _init_placeholders(self):
         """ Everything is time-major """
         self.encoder_inputs = tf.placeholder(
-            shape=(None, None),
+            shape=(None, None, None),
             dtype=tf.int32,
             name='encoder_inputs',
         )
@@ -87,7 +87,7 @@ class Seq2SeqModel():
 
         # required for training, not required for testing
         self.decoder_targets = tf.placeholder(
-            shape=(None, None),
+            shape=(None, None, None),
             dtype=tf.int32,
             name='decoder_targets'
         )
@@ -107,9 +107,8 @@ class Seq2SeqModel():
         with tf.name_scope('DecoderTrainFeeds'):
             sequence_size, batch_size = tf.unstack(tf.shape(self.decoder_targets))
 
-
-            EOS_SLICE = tf.ones([1, batch_size], dtype=tf.int32) * self.EOS
-            PAD_SLICE = tf.ones([1, batch_size], dtype=tf.int32) * self.PAD
+            EOS_SLICE = tf.ones([num_features, batch_size], dtype=tf.int32) * self.EOS
+            PAD_SLICE = tf.zeros([num_features, batch_size], dtype=tf.int32) * self.PAD
 
             self.decoder_train_inputs = tf.concat([EOS_SLICE, self.decoder_targets], axis=0)
             self.decoder_train_length = self.decoder_targets_length + 1
@@ -128,35 +127,17 @@ class Seq2SeqModel():
 
             self.decoder_train_targets = decoder_train_targets
 
-            self.loss_weights = tf.ones([
-                batch_size,
-                tf.reduce_max(self.decoder_train_length)
-            ], dtype=tf.float32, name="loss_weights")
+            self.loss_weights = tf.ones([num_features,
+                                         batch_size,
+                                         tf.reduce_max(self.decoder_train_length)],
+                                         dtype=tf.float32, name="loss_weights")
 
-    def _init_embeddings(self):
-        with tf.variable_scope("embedding") as scope:
-
-            # Uniform(-sqrt(3), sqrt(3)) has variance=1.
-            sqrt3 = math.sqrt(3)
-            initializer = tf.random_uniform_initializer(-sqrt3, sqrt3)
-
-            self.embedding_matrix = tf.get_variable(
-                name="embedding_matrix",
-                shape=[self.vocab_size, self.embedding_size],
-                initializer=initializer,
-                dtype=tf.float32)
-
-            self.encoder_inputs_embedded = tf.nn.embedding_lookup(
-                self.embedding_matrix, self.encoder_inputs)
-
-            self.decoder_train_inputs_embedded = tf.nn.embedding_lookup(
-                self.embedding_matrix, self.decoder_train_inputs)
 
     def _init_simple_encoder(self):
         with tf.variable_scope("Encoder") as scope:
             (self.encoder_outputs, self.encoder_state) = (
                 tf.nn.dynamic_rnn(cell=self.encoder_cell,
-                                  inputs=self.encoder_inputs_embedded,
+                                  inputs=self.encoder_inputs,
                                   sequence_length=self.encoder_inputs_length,
                                   time_major=True,
                                   dtype=tf.float32)
@@ -171,7 +152,7 @@ class Seq2SeqModel():
               encoder_bw_state)) = (
                 tf.nn.bidirectional_dynamic_rnn(cell_fw=self.encoder_cell,
                                                 cell_bw=self.encoder_cell,
-                                                inputs=self.encoder_inputs_embedded,
+                                                inputs=self.encoder_inputs,
                                                 sequence_length=self.encoder_inputs_length,
                                                 time_major=True,
                                                 dtype=tf.float32)
@@ -197,6 +178,7 @@ class Seq2SeqModel():
 
             if not self.attention:
                 decoder_fn_train = seq2seq.simple_decoder_fn_train(encoder_state=self.encoder_state)
+                # TODO embedding_matrix
                 decoder_fn_inference = seq2seq.simple_decoder_fn_inference(
                     output_fn=output_fn,
                     encoder_state=self.encoder_state,
@@ -236,7 +218,7 @@ class Seq2SeqModel():
                     attention_values=attention_values,
                     attention_score_fn=attention_score_fn,
                     attention_construct_fn=attention_construct_fn,
-                    embeddings=self.embedding_matrix,
+                    embeddings=self.embedding_matrix,# TODO
                     start_of_sequence_id=self.EOS,
                     end_of_sequence_id=self.EOS,
                     maximum_length=tf.reduce_max(self.encoder_inputs_length) + 3,
@@ -249,7 +231,7 @@ class Seq2SeqModel():
                 seq2seq.dynamic_rnn_decoder(
                     cell=self.decoder_cell,
                     decoder_fn=decoder_fn_train,
-                    inputs=self.decoder_train_inputs_embedded,
+                    inputs=self.decoder_train_inputs_embedded,# TODO
                     sequence_length=self.decoder_train_length,
                     time_major=True,
                     scope=scope,
@@ -302,7 +284,7 @@ def make_seq2seq_model(**kwargs):
     args = dict(encoder_cell=LSTMCell(10),
                 decoder_cell=LSTMCell(20),
                 vocab_size=10,
-                embedding_size=10,
+                num_features=10,
                 attention=True,
                 bidirectional=True,
                 debug=False)
