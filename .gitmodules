@@ -1,3 +1,6 @@
 [submodule "8515717jnngtrmrvkrr"]
 	path = 8515717jnngtrmrvkrr
 	url = https://git.overleaf.com/8515717jnngtrmrvkrr
+[submodule "fractal"]
+	path = fractal
+	url = https://github.com/danilobellini/fractal.git
