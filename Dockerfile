@@ -17,6 +17,6 @@ RUN \
 
  COPY ./ /root/DLFractalSequences
 
- WORKDIR /root/DLFractalSequences
+ WORKDIR /root/DLFractalSequences/fibonacci/trainer
 
  CMD /bin/bash
