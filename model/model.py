@@ -6,11 +6,14 @@ import math
 
 import numpy as np
 import tensorflow as tf
+
 import seq2seq
 from tensorflow.contrib.layers import safe_embedding_lookup_sparse as embedding_lookup_unique
 from tensorflow.contrib.rnn import LSTMCell, LSTMStateTuple, GRUCell
 
-import seq_utils
+import sys
+sys.path.append('../../')
+import utils.seq_utils as seq_utils
 
 
 class Seq2SeqModel():
