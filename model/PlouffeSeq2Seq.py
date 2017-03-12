@@ -26,7 +26,9 @@ def make_FLAGS():
 
     return flags.FLAGS
 
+
 basis_len = 50
+
 
 class PlouffeGraph(object):
     '''
@@ -37,14 +39,15 @@ class PlouffeGraph(object):
         P.DrawGraph()
     '''
     def __init__(self,N, k):
-        self.n_nodes = N 
+        self.n_nodes = N
         self.k = k
         self.data = [(i, int(i*self.k) % self.n_nodes) for i in range(self.n_nodes)]
-        ''' 
-        We could also solve this by using class inheritance 
+        '''
+        We could also solve this by using class inheritance
         but this will do for now as a placeholder for our nx.Graph object - but is class inheritance evil?
         '''
         self.graph = nx.Graph(data = self.data)
+
     def DrawGraph(self):
         '''
         Simple utility function to draw the graph with matplotlib
@@ -59,6 +62,7 @@ class PlouffeGraph(object):
         input_data = (range(self.n_nodes),np.repeat(self.n_nodes,self.step), np.repeat(k,self.step))
         output_data = np.array(self.data)
         prediction = model.predict(input_data)
+
 
 class PlouffeSequence(object):
     '''
@@ -211,6 +215,7 @@ class Seq2SeqModel():
 
     EOS = 0
     PAD = 1
+
     def __init__(self, encoder_cell, decoder_cell, num_nodes, bidirectional = True, attention=False)
         self.bidirectional = bidirectional
         self.attention = attention
@@ -286,6 +291,26 @@ class Seq2SeqModel():
                 batch_size,
                 tf.reduce_max(self.decoder_train_length)
             ], dtype=tf.float32, name="loss_weights")
+
+
+    def _init_embeddings(self):
+        with tf.variable_scope("embedding") as scope:
+
+            # Uniform(-sqrt(3), sqrt(3)) has variance=1.
+            sqrt3 = math.sqrt(3)
+            initializer = tf.random_uniform_initializer(-sqrt3, sqrt3)
+
+            self.embedding_matrix = tf.get_variable(
+                name="embedding_matrix",
+                shape=[self.vocab_size, self.embedding_size],
+                initializer=initializer,
+                dtype=tf.float32)
+
+            self.encoder_inputs_embedded = tf.nn.embedding_lookup(
+                self.embedding_matrix, self.encoder_inputs)
+
+            self.decoder_train_inputs_embedded = tf.nn.embedding_lookup(
+                self.embedding_matrix, self.decoder_train_inputs)
 
 
     def _make_graph(self):
@@ -432,7 +457,7 @@ class Seq2SeqModel():
 
 
 # Ath fix for Plouffe
-def train_on_fibonacci_split():
+def train_on_plouffe_split():
     model = Seq2SeqModel(encoder_cell = LSTMCell(10), decoder_cell=LSTMCell(20), vocab_size=10, embedding_size=10)
 
     sample_step = 100

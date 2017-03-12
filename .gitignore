@@ -1,2 +1,8 @@
 notebooks/.ipynb*
 *.pyc
+=======
+.*swp
+*.pyc
+
+#for macOS
+.DS_Store

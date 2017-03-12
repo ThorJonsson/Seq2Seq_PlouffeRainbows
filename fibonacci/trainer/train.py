@@ -1,9 +1,12 @@
 import numpy as np
 import tensorflow as tf
 from tensorflow.contrib.rnn import LSTMCell, GRUCell
-from Seq2Seq import Seq2SeqModel, train_on_copy_task
+
+import sys
+sys.path.append('../../')
+from model.model import Seq2SeqModel, train_on_copy_task
 import pandas as pd
-import seq_utils
+import utils.seq_utils as seq_utils
 from tqdm import tqdm
 
 tf.reset_default_graph()
