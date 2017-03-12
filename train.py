@@ -15,7 +15,7 @@ def train_original_model():
         # with bidirectional encoder, decoder state size should be
         # 2x encoder state size
         model = Seq2SeqModel(encoder_cell=LSTMCell(10),
-                             decoder_cell=LSTMCell(20), 
+                             decoder_cell=LSTMCell(20),
                              vocab_size=10,
                              embedding_size=10,
                              attention=True,
@@ -34,7 +34,12 @@ def train_original_model():
 
 
 def train_on_copy_task_v2():
-    model = Seq2SeqModel(encoder_cell = LSTMCell(10), decoder_cell=LSTMCell(20), vocab_size=10, embedding_size=10)
+    model = Seq2SeqModel(encoder_cell=LSTMCell(10),
+                         decoder_cell=LSTMCell(20),
+                         vocab_size=10,
+                         embedding_size=10,
+                         bidirectional=True,
+                         attention=True)
 
     sample_step = 100
     last_step = 1000
@@ -73,10 +78,11 @@ def train_on_copy_task_v2():
 
 
 def train_on_fibonacci_split():
-    model = Seq2SeqModel(encoder_cell = LSTMCell(10), decoder_cell=LSTMCell(20), vocab_size=10, embedding_size=10)
+    model = Seq2SeqModel(encoder_cell = LSTMCell(100), decoder_cell=LSTMCell(200), vocab_size=10,
+                         embedding_size=10,bidirectional=True, attention=True)
 
     sample_step = 100
-    last_step = 1000
+    last_step = 10000
 
     with tf.Session() as session:
         session.run(tf.global_variables_initializer())
