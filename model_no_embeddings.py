@@ -1,16 +1,13 @@
 # Taken from this awesome github repo:
 # https://github.com/ematvey/tensorflow-seq2seq-tutorials
 # Working with TF commit 24466c2e6d32621cd85f0a78d47df6eed2c5c5a6
-
 import math
-
 import numpy as np
 import tensorflow as tf
 import seq2seq
-from tensorflow.contrib.layers import safe_embedding_lookup_sparse as embedding_lookup_unique
 from tensorflow.contrib.rnn import LSTMCell, LSTMStateTuple, GRUCell
+from decoder import simple_decoder_fn_train, regression_decoder_fn_inference, dynamic_rnn_decoder
 slim = tf.contrib.slim
-
 import seq_utils
 
 class Seq2SeqModel():
@@ -21,7 +18,7 @@ class Seq2SeqModel():
     def __init__(self,
                  encoder_cell,
                  decoder_cell,
-                 max_seq_len,
+                 seq_length,
                  batch_size,
                  num_features,
                  bidirectional=True,
@@ -31,13 +28,11 @@ class Seq2SeqModel():
         self.encoder_cell = encoder_cell
         self.decoder_cell = decoder_cell
 
-        self.max_seq_len = max_seq_len
+        self.seq_length = seq_length
         self.batch_size = batch_size
         self.num_features = num_features
 
         self.bidirectional = bidirectional
-        self.PAD = 0
-        self.EOS = 1
         self.attention = attention
 
         #self._make_graph()
@@ -50,8 +45,6 @@ class Seq2SeqModel():
     def _make_graph(self):
 
         self._init_placeholders()
-
-        self._init_decoder_train_connectors()
 
         if self.bidirectional:
             self._init_bidirectional_encoder()
@@ -66,67 +59,17 @@ class Seq2SeqModel():
     def init_placeholders(self):
         """ Everything is time-major """
         self.encoder_inputs = tf.placeholder(
-            shape=(None, None, None),
+            shape=(self.seq_length, self.batch_size, self.num_features),
             dtype=tf.float32,
             name='encoder_inputs',
-        )
-        self.encoder_inputs_length = tf.placeholder(
-            shape=(None,),
-            dtype=tf.int32,
-            name='encoder_inputs_length',
         )
 
         # required for training, not required for testing
         self.decoder_targets = tf.placeholder(
-            shape=(None, None, None),
+            shape=(self.seq_length, self.batch_size, self.num_features),
             dtype=tf.float32,
             name='decoder_targets'
         )
-        self.decoder_targets_length = tf.placeholder(
-            shape=(None,),
-            dtype=tf.int32,
-            name='decoder_targets_length',
-        )
-
-
-    def get_eos_mask(self):
-        EOS_SLICE = tf.ones([1,self.batch_size, self.num_features], dtype=tf.float32)
-        PAD_SLICE = tf.zeros([1,self.batch_size, self.num_features], dtype=tf.float32)
-        # Put EOS at the beginning of input sequence
-        self.decoder_train_inputs = tf.concat([EOS_SLICE, self.decoder_targets], axis=0)
-        self.decoder_train_length = self.decoder_targets_length + 1
-        # Put PAD at the end of target sequence
-        decoder_train_targets = tf.concat([self.decoder_targets, PAD_SLICE], axis=0)
-        # Get target sequence length
-        decoder_train_targets_eos_mask = tf.one_hot(tf.stack([self.decoder_targets_length]*self.num_features),
-                                                    self.max_seq_len,
-                                                    on_value=self.EOS,
-                                                    off_value=self.PAD,
-                                                    dtype=tf.int32)
-        # Make mask time major
-        decoder_train_targets_eos_mask = tf.transpose(decoder_train_targets_eos_mask, [1, 0, 2])
-        decoder_train_targets_eos_mask = tf.cast(decoder_train_targets_eos_mask, tf.float32)
-        return decoder_train_targets_eos_mask
-
-
-    # TODO Verify
-    def apply_eos_mask(self):
-        """
-        During training, `decoder_targets`
-        and decoder logits. This means that their shapes should be compatible.
-
-        Here we do a bit of plumbing to set this up.
-        """
-        self.get_eos_mask()
-        # hacky way using one_hot to put EOS symbol at the end of target sequence
-        decoder_train_targets = tf.add(decoder_train_targets, decoder_train_targets_eos_mask)
-
-        self.decoder_train_targets = decoder_train_targets
-
-        self.loss_weights = tf.ones([num_features,
-                                     batch_size,
-                                     tf.reduce_max(self.decoder_train_length)],
-                                     dtype=tf.float32, name="loss_weights")
 
 
     def init_simple_encoder(self):
@@ -134,7 +77,6 @@ class Seq2SeqModel():
             (self.encoder_outputs, self.encoder_state) = (
                 tf.nn.dynamic_rnn(cell=self.encoder_cell,
                                   inputs=self.encoder_inputs,
-                                  sequence_length=self.encoder_inputs_length,
                                   time_major=True,
                                   dtype=tf.float32)
                 )
@@ -149,7 +91,6 @@ class Seq2SeqModel():
                 tf.nn.bidirectional_dynamic_rnn(cell_fw=self.encoder_cell,
                                                 cell_bw=self.encoder_cell,
                                                 inputs=self.encoder_inputs,
-                                                sequence_length=self.encoder_inputs_length,
                                                 time_major=True,
                                                 dtype=tf.float32)
                 )
@@ -175,17 +116,13 @@ class Seq2SeqModel():
                 return slim.fully_connected(outputs, num_features, scope=scope)
 
             if not self.attention:
-                decoder_fn_train = seq2seq.simple_decoder_fn_train(encoder_state=self.encoder_state)
+                decoder_fn_train = simple_decoder_fn_train(encoder_state=self.encoder_state)
                 # TODO embedding_matrix
-                decoder_fn_inference = seq2seq.simple_regression_decoder_fn_inference( # TODO Make
-                    output_fn=output_fn,
-                    encoder_state=self.encoder_state,
-                    embeddings=self.embedding_matrix, # TODO Remove
-                    start_of_sequence_id=self.EOS,
-                    end_of_sequence_id=self.EOS,
-                    maximum_length=self.max_seq_len + 3,
-                    num_decoder_symbols=self.vocab_size, # TODO Remove
-                )
+                decoder_fn_inference = regression_decoder_fn_inference(encoder_state = self.encoder_state,
+                                                                       self.max_seq_len+3,
+                                                                       self.batch_size,
+                                                                       self.num_features,
+                                                                       output_fn=output_fn)
             else:
 
                 # attention_states: size [batch_size, max_time, num_units]
