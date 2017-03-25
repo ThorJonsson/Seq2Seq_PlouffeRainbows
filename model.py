@@ -141,6 +141,7 @@ class Seq2SeqModel():
             initializer = tf.random_uniform_initializer(-sqrt3, sqrt3)
 
             self.embedding_matrix = tf.get_variable(
+
                 name="embedding_matrix",
                 shape=[self.vocab_size, self.embedding_size],
                 initializer=initializer,

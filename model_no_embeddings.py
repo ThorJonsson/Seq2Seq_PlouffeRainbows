@@ -3,6 +3,7 @@
 # Working with TF commit 24466c2e6d32621cd85f0a78d47df6eed2c5c5a6
 import math
 import numpy as np
+import random
 import tensorflow as tf
 import seq2seq
 from tensorflow.contrib.rnn import LSTMCell, LSTMStateTuple, GRUCell
@@ -14,6 +15,49 @@ MAX_SEQ_LENGTH = 100
 PAD = 0
 EOS = 1
 
+
+def random_walk(num_dim, num_steps):
+    # Realize walk
+    return tf.stack([tf.random_uniform(shape=(num_dim,)) for i in range(num_steps)])
+
+
+class RandomWalk(object):
+
+    def __init__(self, dataset_size, batch_size, num_dim, max_seq_length):
+        self.num_dim = num_dim
+        self.max_seq_length = max_seq_length
+        self.size = dataset_size
+        self.batch_size = batch_size
+        self.seqs_len = []
+        self.seqs = tf.stack([self._preprocessed_random_walk() for i in range(self.size)])
+        self.epoch = 0
+        self.cursor = 0
+        #self.shuffle()
+
+    def _preprocessed_random_walk(self):
+        num_steps = np.random.choice(np.arange(1,self.max_seq_length+1, step=1))
+        self.seqs_len.append(num_steps)
+        # Add EOS (end of sequence symbol)
+        X = random_walk(self.num_dim, num_steps)
+        X = tf.concat([X,tf.ones(shape=(1,self.num_dim))],axis=0)
+        # Pad to max_seq_length and return sample
+        return tf.pad(X, [[0,self.max_seq_length-num_steps],[0,0]])
+
+    #def shuffle(self):
+    #    random.shuffle(self.seqs)
+    #    self.cursor = 0
+
+    def next_batch(self):
+        # if any of the buckets is full go to next epoch
+        if np.any(self.cursor+self.batch_size > self.size):
+            self.epochs += 1
+            self.shuffle() # Also resets cursor
+
+        input_batch = self.seqs[self.cursor:self.cursor+self.batch_size]
+
+        self.cursor += self.batch_size
+
+        return input_batch
 
 
 class Seq2SeqModel():
@@ -37,8 +81,6 @@ class Seq2SeqModel():
         self.attention = attention
 
         self.make_graph()
-
-
 
 
     def init_placeholders(self):
@@ -72,16 +114,40 @@ class Seq2SeqModel():
     def init_decoder_train_connector(self):
         """
         The connector takes the decoder targets during training and applies EOS and PAD
+        Note that here it's convenient to think about num_features axis as the z axis
         """
         with tf.name_scope('DecoderTrainFeeds'):
             sequence_size, batch_size = tf.unstack(tf.shape(self.decoder_targets))
 
-            EOS_MASK = tf.ones([self.embedding_size, batch_size], dtype=tf.int32)*self.EOS
-            PAD_MASK = tf.ones([self.embedding_size, batch_size], dtype=tf.int32)*self.PAD
+            EOS_MASK = tf.ones([self.batch_size, self.num_features], dtype=tf.int32)*self.EOS
+            PAD_MASK = tf.ones([self.batch_size, self.num_features], dtype=tf.int32)*self.PAD
 
             # Because everything is time major the EOS Mask is easy - the first one
+            # Note that we reverse the output sequence so the EOS comes first
+            # We then unroll the sequence until reaching the end symbol
+            # Note that upon inference we have no correct values to feed to the decoder
             self.decoder_train_inputs = tf.concat([EOS_MASK, self.decoder_targets],axis=0)
             self.decoder_train_length = self.decoder_targets_length + 1
+
+            # The targets go well with the PAD_MASK
+            decoder_train_targets = tf.concat([self.decoder_targets, PAD_MASK], axis=0)
+            decoder_train_targets_seq_len, _ = tf.unstack(tf.shape(decoder_train_targets))
+            decoder_train_targets_eos_mask = tf.one_hot(self.decoder_train_length - 1,
+                                                        decoder_train_targets_seq_len,
+                                                        on_value=self.EOS, off_value=self.PAD,
+                                                        dtype=tf.int32)
+            decoder_train_targets_eos_mask = tf.transpose(decoder_train_targets_eos_mask, [1,0])
+
+            # hacky way using one_hot to put EOS symbol at the end of target sequence
+            decoder_train_targets = tf.add(decoder_train_targets,
+                                           decoder_train_targets_eos_mask)
+
+            self.decoder_train_targets = decoder_train_targets
+
+            self.loss_weights = tf.ones([
+                batch_size,
+                tf.reduce_max(self.decoder_train_length)
+            ], dtype=tf.float32, name="loss_weights")
 
 
     def init_simple_encoder(self):
