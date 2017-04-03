@@ -16,48 +16,59 @@ PAD = 0
 EOS = 1
 
 
-def random_walk(num_dim, num_steps):
+def random_sequence(num_dim, num_length):
     # Realize walk
-    return tf.stack([tf.random_uniform(shape=(num_dim,)) for i in range(num_steps)])
+    return tf.stack([tf.random_uniform(shape=(num_dim,)) for i in range(num_length)])
+
+def _preprocessed_random_sequence(max_seq_length,num_dim):
+    seq_length = np.random.choice(np.arange(1,max_seq_length+1, step=1))
+    # Add EOS (end of sequence symbol)
+    X = random_sequence(num_dim, seq_length)
+    X = tf.concat([tf.ones(shape=(1,num_dim)),X],axis=0)
+    # Pad to max_seq_length and return sample
+    return tf.pad(X, [[0,max_seq_length-seq_length],[0,0]]), seq_length
 
 
-class RandomWalk(object):
+def make_dataset(size,max_seq_length,num_dim):
+    seqs = []
+    seqs_lengths = []
+    for i in range(size):
+        seq_i, seq_length_i = _preprocessed_random_sequence(max_seq_length,num_dim)
+        seqs.append(seq_i)
+        seqs_lengths.append(seq_length_i)
+    return seqs, seqs_lengths
 
-    def __init__(self, dataset_size, batch_size, num_dim, max_seq_length):
-        self.num_dim = num_dim
-        self.max_seq_length = max_seq_length
-        self.size = dataset_size
+
+class SequenceIterator(object):
+
+    def __init__(self, seqs, seqs_lengths, batch_size):
+        self.size = len(seqs)
         self.batch_size = batch_size
-        self.seqs_len = []
-        self.seqs = tf.stack([self._preprocessed_random_walk() for i in range(self.size)])
+        self.seqs_len = seqs_lengths
+        self.seqs = seqs
         self.epoch = 0
         self.cursor = 0
         #self.shuffle()
 
-    def _preprocessed_random_walk(self):
-        num_steps = np.random.choice(np.arange(1,self.max_seq_length+1, step=1))
-        self.seqs_len.append(num_steps)
-        # Add EOS (end of sequence symbol)
-        X = random_walk(self.num_dim, num_steps)
-        X = tf.concat([X,tf.ones(shape=(1,self.num_dim))],axis=0)
-        # Pad to max_seq_length and return sample
-        return tf.pad(X, [[0,self.max_seq_length-num_steps],[0,0]])
 
     #def shuffle(self):
     #    random.shuffle(self.seqs)
     #    self.cursor = 0
-
     def next_batch(self):
         # if any of the buckets is full go to next epoch
-        if np.any(self.cursor+self.batch_size > self.size):
-            self.epochs += 1
-            self.shuffle() # Also resets cursor
+        if (self.cursor+self.batch_size) > self.size:
+            self.epoch += 1
+            # self.shuffle() # Also resets cursor
 
-        input_batch = self.seqs[self.cursor:self.cursor+self.batch_size]
-
+        encoder_input_batch = tf.stack(self.seqs[self.cursor:self.cursor+self.batch_size])
+        encoder_input_lengths = self.seqs_len[self.cursor:self.cursor+self.batch_size]
+        decoder_target_batch = tf.reverse_sequence(encoder_input_batch,
+                                                   encoder_input_lengths,
+                                                   1,
+                                                   0)
         self.cursor += self.batch_size
 
-        return input_batch
+        return encoder_input_batch, encoder_input_lengths, decoder_target_batch
 
 
 class Seq2SeqModel():
@@ -289,7 +300,14 @@ def train_on_fibonacci_split():
 
 
 if __name__=="__main__":
-      #from tensorflow.contrib.rnn import LSTMCell
+    #from tensorflow.contrib.rnn import LSTMCell
     #m_reg = Seq2SeqModel(LSTMCell(10), LSTMCell(10), 10, 3, 7, bidirectional=False, attention=False)
+    seqs, seqs_lengths = make_dataset(6,5,2)
 
-    train_on_fibonacci_split()
+    with tf.Session() as sess:
+        x = [sess.run(a) for a in seqs]
+        print(x)
+        x = [sess.run(a) for a in seqs]
+        print(x)
+    #train_on_fibonacci_split()
+
