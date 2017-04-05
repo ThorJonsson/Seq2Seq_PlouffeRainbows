@@ -131,9 +131,8 @@ def sequence_loss(logits, targets, weights,
     return crossent
 
 
-def l2_loss(logits, targets, weights,
-            average_across_timesteps=True, average_across_batch=True, name=None):
-  """Weighted l2 loss for a sequence of logits (per example).
+def l2_loss(logits, targets, name=None):
+  """l2 loss for a sequence of logits (per example).
 
   Args:
     logits: A 3D Tensor of shape
@@ -142,25 +141,15 @@ def l2_loss(logits, targets, weights,
       timestep.
     targets: A 2D Tensor of shape [batch_size x sequence_length] and dtype
       int. The target represents the true class at each timestep.
-    weights: A 2D Tensor of shape [batch_size x sequence_length] and dtype
-      float. Weights constitutes the weighting of each prediction in the
-      sequence. When using weights as masking set all valid timesteps to 1 and
-      all padded timesteps to 0.
-    average_across_timesteps: If set, sum the cost across the sequence
-      dimension and divide by the cost by the total label weight across
-      timesteps.
-    average_across_batch: If set, sum the cost across the batch dimension and
-      divide the returned cost by the batch size.
-    softmax_loss_function: Function (inputs-batch, labels-batch) -> loss-batch
-      to be used instead of the standard softmax (the default if this is None).
     name: Optional name for this operation, defaults to "sequence_loss".
 
   Returns:
-    A scalar float Tensor: The average log-perplexity per symbol (weighted).
+    A scalar float Tensor: The l2 loss divided by the batch_size,
+    the number of sequence components and the number of features.
 
   Raises:
     ValueError: logits does not have 3 dimensions or targets does not have 2
-                dimensions or weights does not have 2 dimensions.
+                dimensions.
   """
   if len(logits.get_shape()) != 3:
     raise ValueError("Logits must be a "
@@ -168,35 +157,14 @@ def l2_loss(logits, targets, weights,
   if len(targets.get_shape()) != 2:
     raise ValueError("Targets must be a [batch_size x sequence_length] "
                      "tensor")
-  if len(weights.get_shape()) != 2:
-    raise ValueError("Weights must be a [batch_size x sequence_length] "
-                     "tensor")
-  with ops.name_scope(name, "sequence_loss", [logits, targets, weights]):
+  with ops.name_scope(name, "sequence_loss", [logits, targets]):
     num_features = array_ops.shape(logits)[2]
-    probs_flat = array_ops.reshape(logits, [-1, num_features])
-    targets = array_ops.reshape(targets, [-1])
-
+    batch_size = array_ops.shape(logits)[1]
+    seq_length = array_ops.shape(logits)[0]
     # Get Loss Function
     l2loss = tf.square(tf.subtract(logits, targets))
 
-    l2loss = l2loss * array_ops.reshape(weights, [-1])
-    if average_across_timesteps and average_across_batch:
-      l2loss = math_ops.reduce_sum(l2loss)
-      total_size = math_ops.reduce_sum(weights)
-      total_size += 1e-12 # to avoid division by 0 for all-0 weights
-      l2loss /= total_size
-    else:
-      batch_size = array_ops.shape(logits)[0]
-      sequence_length = array_ops.shape(logits)[1]
-      l2loss = array_ops.reshape(l2loss, [batch_size, sequence_length])
-    if average_across_timesteps and not average_across_batch:
-      l2loss = math_ops.reduce_sum(l2loss, axis=[1])
-      total_size = math_ops.reduce_sum(weights, axis=[1])
-      total_size += 1e-12 # to avoid division by 0 for all-0 weights
-      l2loss /= total_size
-    if not average_across_timesteps and average_across_batch:
-      l2loss = math_ops.reduce_sum(l2loss, axis=[0])
-      total_size = math_ops.reduce_sum(weights, axis=[0])
-      total_size += 1e-12 # to avoid division by 0 for all-0 weights
-      l2loss /= total_size
-    return l2loss
+    l2loss = math_ops.reduce_sum(l2loss)
+    total_size = num_features*batch_size*seq_length+1e-12 # to avoid division by 0 for all-0 weights
+    l2loss /= total_size
+  return l2loss

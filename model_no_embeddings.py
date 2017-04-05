@@ -10,7 +10,7 @@ from tensorflow.contrib.rnn import LSTMCell, LSTMStateTuple, GRUCell
 from decoder import simple_decoder_fn_train, regression_decoder_fn_inference
 slim = tf.contrib.slim
 import seq_utils
-
+import pdb
 MAX_SEQ_LENGTH = 100
 PAD = 0
 EOS = 1
@@ -20,31 +20,49 @@ def random_sequence(num_dim, num_length):
     # Realize walk
     return tf.stack([tf.random_uniform(shape=(num_dim,)) for i in range(num_length)])
 
-def _preprocessed_random_sequence(max_seq_length,num_dim):
+def _get_preprocessed_random_sequence(max_seq_length,num_dim):
+    """
+    Args: max_seq_length: the maximum length allowed for a sequence
+          num_dim: number of dimension for the components of the sequence
+    Returns: A tuple of:
+                    1. random sequence of num_dim dimensional components padded to max_seq_length
+                    2. the length of each sequence as a (python/numpy) integer
+    """
     seq_length = np.random.choice(np.arange(1,max_seq_length+1, step=1))
-    # Add EOS (end of sequence symbol)
     X = random_sequence(num_dim, seq_length)
+    # Add EOS (vector of ones)
     X = tf.concat([tf.ones(shape=(1,num_dim)),X],axis=0)
     # Pad to max_seq_length and return sample
-    return tf.pad(X, [[0,max_seq_length-seq_length],[0,0]]), seq_length
+    return tf.pad(X, [[0,max_seq_length-seq_length],[0,0]]), seq_length + 1
 
 
 def make_dataset(size,max_seq_length,num_dim):
+    """
+    This function makes a toy dataset of random sequences of variable length (up to max_seq_length)
+    The components of the sequences are vectors.
+    Args: size: the size of our dataset
+           max_seq_length: the maximum length allowed for a sequence 
+           num_dim: number of dimension for the components of the sequence
+    Returns: A tuple of:
+                    1. lists where each component of the list is a tensor representing a sequence
+                    2. list of python integers representing the length of the sequences in the other list
+    """
     seqs = []
     seqs_lengths = []
     for i in range(size):
-        seq_i, seq_length_i = _preprocessed_random_sequence(max_seq_length,num_dim)
+        seq_i, seq_length_i = _get_preprocessed_random_sequence(max_seq_length,num_dim)
         seqs.append(seq_i)
         seqs_lengths.append(seq_length_i)
     return seqs, seqs_lengths
 
 
 class SequenceIterator(object):
-
-    def __init__(self, seqs, seqs_lengths, batch_size):
+    """ Simple iterator that works like all our other iterators """
+    def __init__(self, seqs, seqs_lengths, num_features, batch_size):
         self.size = len(seqs)
         self.batch_size = batch_size
         self.seqs_len = seqs_lengths
+        self.num_features = num_features
         self.seqs = seqs
         self.epoch = 0
         self.cursor = 0
@@ -59,16 +77,20 @@ class SequenceIterator(object):
         if (self.cursor+self.batch_size) > self.size:
             self.epoch += 1
             # self.shuffle() # Also resets cursor
-
+        #pdb.set_trace()
         encoder_input_batch = tf.stack(self.seqs[self.cursor:self.cursor+self.batch_size])
+        print(encoder_input_batch)
         encoder_input_lengths = self.seqs_len[self.cursor:self.cursor+self.batch_size]
-        decoder_target_batch = tf.reverse_sequence(encoder_input_batch,
-                                                   encoder_input_lengths,
-                                                   1,
-                                                   0)
+        decoder_target_batch = tf.reverse_sequence(encoder_input_batch, encoder_input_lengths, 1, 0)
+        # We need to transpose for time major
+        encoder_input_batch = tf.transpose(encoder_input_batch, [1,0,2])
+        decoder_target_batch = tf.transpose(decoder_target_batch, [1,0,2])
+        print(decoder_target_batch)
+        print(tf.ones(self.num_features))
+        decoder_input_batch = tf.concat([tf.ones(shape=(1, self.batch_size, self.num_features)), decoder_target_batch],axis=0)
         self.cursor += self.batch_size
 
-        return encoder_input_batch, encoder_input_lengths, decoder_target_batch
+        return encoder_input_batch, encoder_input_lengths, decoder_input_batch, decoder_target_batch
 
 
 class Seq2SeqModel():
@@ -299,15 +321,122 @@ def train_on_fibonacci_split():
                 print()
 
 
+# Make an encoder function
+def init_simple_encoder(encoder_cell, encoder_inputs, encoder_inputs_length):
+    with tf.variable_scope("Encoder") as scope:
+        encoder_outputs, encoder_state = tf.nn.dynamic_rnn(cell=encoder_cell,
+                                                           inputs=encoder_inputs,
+                                                           sequence_length=encoder_inputs_length,
+                                                           time_major=True,
+                                                           dtype=tf.float32)
+        return encoder_outputs, encoder_state
+
+# Make a decoder function
+def init_decoder_train(decoder_cell, decoder_targets, decoder_targets_length, encoder_state, num_features):
+    with tf.variable_scope("Decoder") as scope:
+        def output_fn(outputs):
+            return slim.fully_connected(outputs, num_features, scope=scope)
+
+        # TODO Comment
+        decoder_output = seq2seq.dynamic_rnn_decoder(cell=decoder_cell,
+                                                     decoder_fn=simple_decoder_fn_train(encoder_state=encoder_state),
+                                                     inputs=decoder_targets,
+                                                     sequence_length=decoder_targets_length,
+                                                     time_major=True,
+                                                     scope=scope)
+
+        decoder_outputs, decoder_state, decoder_context_state = decoder_output
+
+        decoder_logits = output_fn(decoder_outputs)
+        return decoder_logits
+
+
+def init_decoder_inference(decoder_cell, encoder_state, seq_length, batch_size, num_features, output_fn):
+    with tf.variable_scope("Decoder") as scope:
+        scope.reuse_variables()
+
+        decoder_fn_inference = regression_decoder_fn_inference(encoder_state,
+                                                               seq_length,
+                                                               batch_size,
+                                                               num_features,
+                                                               output_fn=output_fn)
+
+        decoder_inference_out = seq2seq.dynamic_rnn_decoder(cell=decoder_cell,
+                                                            decoder_fn=decoder_fn_inference,
+                                                            time_major=True,
+                                                            scope=scope)
+
+        decoder_logits_inference, self.decoder_state_inference, self.decoder_context_state_inference = decoder_inference_out
+        # We need the values to be between 0 and 1 to be easy to parameterize with a network for regression
+        decoder_prediction_inference = decoder_logits_inference*num_features
+    return decoder_prediction_inference
+
+# Setup optimizer function (returns the train_op)
+def init_optimizer(decoder_logits, decoder_targets):
+    # Question: Why transpose?
+    #logits = tf.transpose(decoder_logits_train, [1, 0, 2])
+    #targets = tf.transpose(decoder_train_targets, [1, 0])
+    # TODO verify that home-made loss function works
+    loss = l2_loss(logits=decoder_logits, targets=decoder_targets)
+    train_op = tf.train.AdamOptimizer().minimize(loss)
+    return loss, train_op
+
+def l2_loss(logits, targets, name=None):
+  """l2 loss for a sequence of logits (per example).
+
+  Args:
+    logits: A 3D Tensor of shape
+      [batch_size x sequence_length x num_features] and dtype float.
+      The logits correspond to the prediction across all classes at each
+      timestep.
+    targets: A 2D Tensor of shape [batch_size x sequence_length] and dtype
+      int. The target represents the true class at each timestep.
+    name: Optional name for this operation, defaults to "sequence_loss".
+
+  Returns:
+    A scalar float Tensor: The l2 loss divided by the batch_size,
+    the number of sequence components and the number of features.
+
+  Raises:
+    ValueError: logits does not have 3 dimensions or targets does not have 2
+                dimensions.
+  """
+  if len(logits.get_shape()) != 3:
+    raise ValueError("Logits must be a "
+                     "[batch_size x sequence_length x logits] tensor")
+  if len(targets.get_shape()) != 3:
+    raise ValueError("Targets must be a [batch_size x sequence_length] "
+                     "tensor")
+  with tf.name_scope(name, "sequence_loss", [logits, targets]):
+    num_features = tf.shape(logits)[2]
+    batch_size = tf.shape(logits)[1]
+    seq_length = tf.shape(logits)[0]
+    # Get Loss Function
+    l2loss = tf.square(tf.subtract(logits, targets))
+
+    l2loss = tf.reduce_sum(l2loss)
+    total_size = tf.to_float(num_features*batch_size*seq_length)+1e-12 # to avoid division by 0 for all-0 weights
+    l2loss /= total_size
+  return l2loss
+
 if __name__=="__main__":
     #from tensorflow.contrib.rnn import LSTMCell
     #m_reg = Seq2SeqModel(LSTMCell(10), LSTMCell(10), 10, 3, 7, bidirectional=False, attention=False)
-    seqs, seqs_lengths = make_dataset(6,5,2)
-
+    num_features = 2
+    batch_size = 2
+    seqs, seqs_lengths = make_dataset(6,5,num_features)
+    eh = SequenceIterator(seqs, seqs_lengths, num_features, batch_size)
+    encoder_input, seq_length, decoder_input, decoder_target = eh.next_batch()
+    encoder_output, encoder_state = init_simple_encoder(LSTMCell(10), encoder_input, seq_length)
+    decoder_logits = init_decoder_train(LSTMCell(10), decoder_target, seq_length, encoder_state, num_features)
+    loss, train_op = init_optimizer(decoder_logits, decoder_target)
     with tf.Session() as sess:
-        x = [sess.run(a) for a in seqs]
-        print(x)
-        x = [sess.run(a) for a in seqs]
-        print(x)
+        sess.run(tf.global_variables_initializer())
+        # Now we have encoder inputs and decoder targets so we need decoder inputs
+        # We need to make sure that we can replicate this for other classes (e.g. the Plouffe Fractal and Cellular
+        # Automata
+        for 
+            my_loss, my_train_op = sess.run([loss, train_op])
+        # Next we need to
     #train_on_fibonacci_split()
 

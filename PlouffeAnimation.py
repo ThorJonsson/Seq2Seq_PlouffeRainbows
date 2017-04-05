@@ -74,14 +74,16 @@ class PlouffeSequence(object):
         return nodes, edges
 
 
-def get_plouffe_seq(init, num_nodes = 5, n_frames=2):
+def get_plouffe_seq(init, num_nodes = 10, n_frames=10):
     limit = init+10
+    # Really simple if you think about what the Plouffe Sequence actually is (and you like list comprehension in list
+    # comprehension
     Plouffe_Seq = [[int(i*j)%num_nodes for i in range(num_nodes)] for j in np.arange(init,limit, (limit-init)/float(n_frames))]
     return Plouffe_Seq
 
 
 def make_dataset():
-    x = np.random.randint(50, size=5)
+    x = np.random.randint(50, size=500)
     df = pd.DataFrame(x)
     df['Plouffe'] = df[0].apply(get_plouffe_seq)
     return df
@@ -119,7 +121,7 @@ def batch_up(inputs, batch_size,  max_sequence_length=None):
 # Simple sequence iterator
 class Iterator(object):
 
-    def __init__(self, Plouffe_Sequences, num_nodes = 10, num_frames = 200, batch_size = 1):
+    def __init__(self, Plouffe_Sequences, num_nodes = 10, num_frames = 200, batch_size = 10):
         self.batch_size = batch_size
         self.num_nodes = num_nodes
         self.data = Plouffe_Sequences
