@@ -19,8 +19,8 @@ from matplotlib import rc
 import numpy as np
 import networkx as nx
 import pandas as pd
-
-
+import random
+import pdb
 class PlouffeGraph(object):
 
     def __init__(self,N, k):
@@ -73,8 +73,8 @@ class PlouffeSequence(object):
         edges = nx.draw_networkx_edges(self.plouffe.graph,pos=self.pos)
         return nodes, edges
 
-
-def get_plouffe_seq(init, num_nodes = 10, n_frames=10):
+# TODO n_frames make consistent
+def get_plouffe_seq(init, num_nodes = 10, n_frames=200):
     limit = init+10
     # Really simple if you think about what the Plouffe Sequence actually is (and you like list comprehension in list
     # comprehension
@@ -89,7 +89,7 @@ def make_dataset():
     return df
 
 
-def batch_up(inputs, batch_size,  max_sequence_length=None):
+def batch_up(inputs, batch_size, num_nodes, max_sequence_length=None):
     """
     Args:
         inputs:
@@ -106,16 +106,13 @@ def batch_up(inputs, batch_size,  max_sequence_length=None):
             batch-sized list of integers specifying amount of active
             time steps in each input sequence
     """
-
-    inputs_batch_major = np.zeros(shape=[batch_size, max_sequence_length], dtype=np.int32) # == PAD
+    #pdb.set_trace()
+    inputs_batch_major = np.zeros(shape=[batch_size, max_sequence_length, num_nodes], dtype=np.float32) # == PAD
 
     for i, seq in enumerate(inputs):
-        inputs_batch_major[i] = seq
+        inputs_batch_major[i] = np.array(seq)*(1/float(num_nodes))
 
-    # [batch_size, max_time] -> [max_time, batch_size]
-    inputs_time_major = inputs_batch_major.swapaxes(0, 1)
-
-    return inputs_time_major, sequence_lengths
+    return inputs_batch_major
 
 
 # Simple sequence iterator
@@ -124,6 +121,7 @@ class Iterator(object):
     def __init__(self, Plouffe_Sequences, num_nodes = 10, num_frames = 200, batch_size = 10):
         self.batch_size = batch_size
         self.num_nodes = num_nodes
+        self.num_frames = num_frames
         self.data = Plouffe_Sequences
         self.size = len(self.data)
         # cursor within an epoch
@@ -141,16 +139,16 @@ class Iterator(object):
             self.epochs += 1
             self.shuffle() # Also resets cursor
 
-        target_seq = self.data[self.cursor:self.cursor+self.batch_size]
-        input_seq = [list(reversed(seq)) for seq in input_seq]
-
-        input_seq_time_major = batch_up(input_seq, self.batch_size)
-
-        target_seq_time_major = batch_up(target_seq, self.batch_size)
+        input_seq = self.data[self.cursor:self.cursor+self.batch_size]
+        # Takes the list of lists of lists and makes a numpy array
+        input_seq_time_major = batch_up(input_seq,
+                                        self.batch_size,
+                                        self.num_nodes,
+                                        self.num_frames)
 
         self.cursor += self.batch_size
-
-        return input_seq_time_major, input_seq_lengths, target_seq_time_major, target_seq_lengths
+        #TODO add seq_length for variable length sequences
+        return input_seq_time_major
 
 
 def test_animation():

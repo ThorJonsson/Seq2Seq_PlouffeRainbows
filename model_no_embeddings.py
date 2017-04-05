@@ -8,13 +8,16 @@ import tensorflow as tf
 import seq2seq
 from tensorflow.contrib.rnn import LSTMCell, LSTMStateTuple, GRUCell
 from decoder import simple_decoder_fn_train, regression_decoder_fn_inference
-slim = tf.contrib.slim
 import seq_utils
+import PlouffeAnimation
 import pdb
+from tqdm import tqdm
+
 MAX_SEQ_LENGTH = 100
 PAD = 0
 EOS = 1
 
+slim = tf.contrib.slim
 
 def random_sequence(num_dim, num_length):
     # Realize walk
@@ -320,6 +323,21 @@ def train_on_fibonacci_split():
                         break
                 print()
 
+def preprocess(encoder_input, seq_length, batch_size, num_features):
+    """
+    This function takes a placeholder representing the encoder_input, and appends EOS to the front of it. 
+    It then generates a corresponding decoder_input and decoder_target
+    """
+    #batch_size = tf.shape(encoder_input)[0]
+    #TODO: Variable seq length
+    encoder_input_lengths = tf.ones(batch_size,dtype=tf.int32)*seq_length
+    decoder_target = tf.reverse_sequence(encoder_input, encoder_input_lengths, 1, 0)
+    # We need to transpose for time major
+    encoder_input = tf.transpose(encoder_input, [1,0,2])
+    decoder_target = tf.transpose(decoder_target, [1,0,2])
+    decoder_input = tf.concat([tf.ones(shape=(1, batch_size, num_features)), decoder_target],axis=0)
+
+    return encoder_input, encoder_input_lengths, decoder_input, decoder_target
 
 # Make an encoder function
 def init_simple_encoder(encoder_cell, encoder_inputs, encoder_inputs_length):
@@ -419,24 +437,57 @@ def l2_loss(logits, targets, name=None):
     l2loss /= total_size
   return l2loss
 
-if __name__=="__main__":
-    #from tensorflow.contrib.rnn import LSTMCell
-    #m_reg = Seq2SeqModel(LSTMCell(10), LSTMCell(10), 10, 3, 7, bidirectional=False, attention=False)
-    num_features = 2
-    batch_size = 2
-    seqs, seqs_lengths = make_dataset(6,5,num_features)
-    eh = SequenceIterator(seqs, seqs_lengths, num_features, batch_size)
-    encoder_input, seq_length, decoder_input, decoder_target = eh.next_batch()
+
+def train_on_plouffe_copy():
+    num_features = 10
+    batch_size = 10
+    # TODO inference
+    #sample_step = 100
+    seq_length = 200
+    num_step = 100
+    encoder_input_ph = tf.placeholder(dtype=tf.float32,shape=(batch_size, seq_length, num_features), name='encoder_input')
+    encoder_input, seq_length, decoder_input, decoder_target = preprocess(encoder_input_ph,
+                                                                          seq_length,
+                                                                          batch_size,
+                                                                          num_features)
     encoder_output, encoder_state = init_simple_encoder(LSTMCell(10), encoder_input, seq_length)
     decoder_logits = init_decoder_train(LSTMCell(10), decoder_target, seq_length, encoder_state, num_features)
     loss, train_op = init_optimizer(decoder_logits, decoder_target)
-    with tf.Session() as sess:
+    with tf.Session() as session:
+        session.run(tf.global_variables_initializer())
+        # Makes a dataset that has size 500 TODO make size a variable
+        Data = PlouffeAnimation.make_dataset()
+        iterator = PlouffeAnimation.Iterator(Data['Plouffe'].tolist(), num_nodes = num_features)
+        #loss_track = []
+
+        for i in tqdm(range(num_step)):
+            feed_dict = {encoder_input_ph: iterator.next_batch()}
+            l,_ = session.run([loss, train_op], feed_dict)
+            print(l)
+            """if i == 0 or i % sample_step == 0:
+                print('batch {}'.format(i))
+                print(' minibatch_loss: {}'.format(session.run(model.loss, feed_dict)))
+                # Transposed for batch major
+                for i, (e_in, dt_pred) in enumerate(zip(
+                        feed_dict[model.decoder_targets].T,
+                        session.run(model.decoder_prediction_train, feed_dict).T
+                    )):
+                    print('  sample {}:'.format(i + 1))
+                    print('    enc input           > {}'.format(e_in))
+                    print('    dec train predicted > {}'.format(dt_pred))
+                    if i >= 2:
+                        break
+                print()
+            """
+
+if __name__=="__main__":
+    train_on_plouffe_copy()
+    '''with tf.Session() as sess:
         sess.run(tf.global_variables_initializer())
         # Now we have encoder inputs and decoder targets so we need decoder inputs
         # We need to make sure that we can replicate this for other classes (e.g. the Plouffe Fractal and Cellular
         # Automata
-        for 
-            my_loss, my_train_op = sess.run([loss, train_op])
+        my_loss, my_train_op = sess.run([loss, train_op])
         # Next we need to
-    #train_on_fibonacci_split()
-
+        #train_on_fibonacci_split()
+    '''
