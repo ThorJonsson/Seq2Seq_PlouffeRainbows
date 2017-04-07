@@ -11,8 +11,9 @@ from decoder import simple_decoder_fn_train, regression_decoder_fn_inference
 import seq_utils
 import PlouffeAnimation
 import pdb
-from tqdm import tqdm
-
+from tqdm import trange
+import time
+import pandas as pd
 MAX_SEQ_LENGTH = 100
 PAD = 0
 EOS = 1
@@ -437,48 +438,129 @@ def l2_loss(logits, targets, name=None):
     l2loss /= total_size
   return l2loss
 
+def run_inference()
+    assert not np.isnan(batch_loss)
+    # TODO inference every now and then
+    #print(l)
+    if i == 0 or i % sample_step == 0:
+        print('batch {}'.format(i))
+        print(' minibatch_loss: {}'.format(session.run(loss, feed_dict)))
+        # Transposed for batch major
+        for i, (e_in, dt_pred) in enumerate(zip(
+                feed_dict[model.decoder_targets].T,
+                session.run(model.decoder_prediction_train, feed_dict).T
+            )):
+            print('  sample {}:'.format(i + 1))
+            print('    enc input           > {}'.format(e_in))
+            print('    dec train predicted > {}'.format(dt_pred))
+            if i >= 2:
+                break
+        print()
 
-def train_on_plouffe_copy():
-    num_features = 10
+
+def test_and_display():
+    N = 200 # Set number of nodes
+    n_frames = 200
+    limit = 102
+    G = PlouffeSequence(N,98,limit,n_frames) # Initialize the graph G
+    anim = FuncAnimation(G.fig, G.next_frame,frames=n_frames, blit=True)
+    anim.save('PlouffeSequence200_98_102.gif', dpi=80, writer='imagemagick')
+
+
+def train_on_plouffe_copy(checkpoint_name = 'Holuhraun'):
+    log_dict = {'CheckpointName': checkpoint_name,'Epoch': [], 'TrainingLoss': [], 'MeanTrainingDuration': [], 'ValidationLoss': [], 'MeanValidDuration':[]}
+    ########
+    # Set Hyperparameters
+    ########
+    dataset_size = 1000
+    num_nodes = 100
     batch_size = 10
     # TODO inference
-    #sample_step = 100
+    max_num_epoch = 100
+    sample_step = 100
     seq_length = 200
     num_step = 100
+    cell_size = 64
+    ########
+    # Define the Computational Graph
+    ########
     encoder_input_ph = tf.placeholder(dtype=tf.float32,shape=(batch_size, seq_length, num_features), name='encoder_input')
     encoder_input, seq_length, decoder_input, decoder_target = preprocess(encoder_input_ph,
                                                                           seq_length,
                                                                           batch_size,
                                                                           num_features)
-    encoder_output, encoder_state = init_simple_encoder(LSTMCell(10), encoder_input, seq_length)
-    decoder_logits = init_decoder_train(LSTMCell(10), decoder_target, seq_length, encoder_state, num_features)
+
+    encoder_output, encoder_state = init_simple_encoder(LSTMCell(cell_size), encoder_input, seq_length)
+    decoder_logits = init_decoder_train(LSTMCell(cell_size), decoder_target, seq_length, encoder_state, num_features)
     loss, train_op = init_optimizer(decoder_logits, decoder_target)
+    ########
+    # Run Graph
+    ########
     with tf.Session() as session:
         session.run(tf.global_variables_initializer())
-        # Makes a dataset that has size 500 TODO make size a variable
-        Data = PlouffeAnimation.make_dataset()
-        iterator = PlouffeAnimation.Iterator(Data['Plouffe'].tolist(), num_nodes = num_features)
-        #loss_track = []
+        df = PlouffeAnimation.make_dataset(dataset_size)
+        data = df['Plouffe'].tolist()
+        training_data = data[:int(dataset_size*0.8)]
+        valid_data = data[int(dataset_size*0.8):int(dataset_size*0.95)]
+        test_data = data[int(dataset_size*0.95):int(dataset_size)]
 
-        for i in tqdm(range(num_step)):
-            feed_dict = {encoder_input_ph: iterator.next_batch()}
-            l,_ = session.run([loss, train_op], feed_dict)
-            print(l)
-            """if i == 0 or i % sample_step == 0:
-                print('batch {}'.format(i))
-                print(' minibatch_loss: {}'.format(session.run(model.loss, feed_dict)))
-                # Transposed for batch major
-                for i, (e_in, dt_pred) in enumerate(zip(
-                        feed_dict[model.decoder_targets].T,
-                        session.run(model.decoder_prediction_train, feed_dict).T
-                    )):
-                    print('  sample {}:'.format(i + 1))
-                    print('    enc input           > {}'.format(e_in))
-                    print('    dec train predicted > {}'.format(dt_pred))
-                    if i >= 2:
-                        break
-                print()
-            """
+        train_iterator = PlouffeAnimation.Iterator(training_data,
+                                                   num_nodes,
+                                                   seq_length,
+                                                   batch_size)
+
+        valid_iterator = PlouffeAnimation.Iterator(valid_data,
+                                                   num_nodes,
+                                                   seq_length,
+                                                   batch_size)
+
+        step, mean_loss = 0,0
+        train_losses, valid_losses = [], []
+        current_epoch = 0
+        while current_epoch < max_num_epoch:
+            mean_train_duration = 0
+            # tqdm iterator
+            num_train_steps = int(dataset_size*0.8/batch_size)
+            train_epoch = trange(num_train_steps, desc='Loss', leave=True)
+            ### Training
+            for _ in train_epoch:
+                feed_dict = {encoder_input_ph: train_iterator.next_batch()}
+                start_time = time.time()
+                train_batch_loss,_ = session.run([loss, train_op], feed_dict)
+                duration = time.time() - start_time
+                mean_train_duration += duration
+                step_desc = ('Epoch {}: loss = {} ({:.2f} sec/step)'.format(current_epoch, train_batch_loss, duration))
+                train_epoch_mean_loss += train_batch_loss
+                train_epoch.set_description(step_desc)
+                train_epoch.refresh()
+
+            mean_valid_duration = 0
+            # tqdm iterator
+            num_valid_steps = int(dataset_size*0.15/batch_size)
+            valid_epoch = trange(num_valid_steps, desc='Loss', leave=True)
+            ### Validating
+            for _ in valid_epoch:
+                feed_dict = {encoder_input_ph: valid_iterator.next_batch()}
+                start_time = time.time()
+                valid_batch_loss = session.run([loss], feed_dict)
+                duration = time.time() - start_time
+                mean_valid_duration += duration
+                step_desc = ('Epoch {}: loss = {} ({:.2f} sec/step)'.format(current_epoch, valid_batch_loss, duration))
+                valid_epoch_mean_loss += valid_batch_loss
+                valid_epoch.set_description(step_desc)
+                valid_epoch.refresh()
+            ### Logging
+            log_dict['Epoch'] = current_epoch
+            log_dict['TrainingLoss'] = train_epoch_mean_loss/num_train_steps
+            log_dict['MeanTrainingDuration'] = mean_train_duration/num_train_steps
+            log_dict['ValidationLoss'] = valid_epoch_mean_loss/num_valid_steps
+            log_dict['MeanValidationDuration'] = mean_valid_duration/num_valid_steps
+
+            log_df = pd.DataFrame(log_dict)
+            ### Testing
+            if current_epoch % sample_step == 0:
+                test_and_display()
+
 
 if __name__=="__main__":
     train_on_plouffe_copy()

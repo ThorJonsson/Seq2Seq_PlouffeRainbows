@@ -21,11 +21,14 @@ import networkx as nx
 import pandas as pd
 import random
 import pdb
+
+
 class PlouffeGraph(object):
 
     def __init__(self,N, k):
         self.N = N
         self.k = k
+        # This list represents the Plouffe Graph for exponent k
         self.data = [(i, int(i*k)%N) for i in range(N)]
         '''
         We could also solve this by using class inheritance
@@ -82,8 +85,8 @@ def get_plouffe_seq(init, num_nodes = 10, n_frames=200):
     return Plouffe_Seq
 
 
-def make_dataset():
-    x = np.random.randint(50, size=500)
+def make_dataset(_size, max_int = 50):
+    x = np.random.randint(max_int, size=_size)
     df = pd.DataFrame(x)
     df['Plouffe'] = df[0].apply(get_plouffe_seq)
     return df
@@ -136,7 +139,7 @@ class Iterator(object):
     def next_batch(self):
         # if any of the buckets is full go to next epoch
         if np.any(self.cursor+self.batch_size > self.size):
-            self.epochs += 1
+            self.epoch += 1
             self.shuffle() # Also resets cursor
 
         input_seq = self.data[self.cursor:self.cursor+self.batch_size]
