@@ -77,7 +77,7 @@ class PlouffeSequence(object):
         return nodes, edges
 
 # TODO n_frames make consistent
-def get_plouffe_seq(init, num_nodes = 10, n_frames=200):
+def get_plouffe_seq(init, num_nodes = 100, n_frames=200):
     limit = init+10
     # Really simple if you think about what the Plouffe Sequence actually is (and you like list comprehension in list
     # comprehension
@@ -92,7 +92,7 @@ def make_dataset(_size, max_int = 50):
     return df
 
 
-def batch_up(inputs, batch_size, num_nodes, max_sequence_length=None):
+def batch_up(inputs, batch_size, num_nodes, max_sequence_length):
     """
     Args:
         inputs:
@@ -110,7 +110,7 @@ def batch_up(inputs, batch_size, num_nodes, max_sequence_length=None):
             time steps in each input sequence
     """
     #pdb.set_trace()
-    inputs_batch_major = np.zeros(shape=[batch_size, max_sequence_length, num_nodes], dtype=np.float32) # == PAD
+    inputs_batch_major = np.zeros(shape=[batch_size, 200, num_nodes], dtype=np.float32) # == PAD
 
     for i, seq in enumerate(inputs):
         inputs_batch_major[i] = np.array(seq)*(1/float(num_nodes))
@@ -121,7 +121,7 @@ def batch_up(inputs, batch_size, num_nodes, max_sequence_length=None):
 # Simple sequence iterator
 class Iterator(object):
 
-    def __init__(self, Plouffe_Sequences, num_nodes = 10, num_frames = 200, batch_size = 10):
+    def __init__(self, Plouffe_Sequences, num_nodes, num_frames, batch_size):
         self.batch_size = batch_size
         self.num_nodes = num_nodes
         self.num_frames = num_frames
@@ -141,7 +141,7 @@ class Iterator(object):
         if np.any(self.cursor+self.batch_size > self.size):
             self.epoch += 1
             self.shuffle() # Also resets cursor
-
+        #pdb.set_trace()
         input_seq = self.data[self.cursor:self.cursor+self.batch_size]
         # Takes the list of lists of lists and makes a numpy array
         input_seq_time_major = batch_up(input_seq,

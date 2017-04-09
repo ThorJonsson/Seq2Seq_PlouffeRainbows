@@ -438,7 +438,7 @@ def l2_loss(logits, targets, name=None):
     l2loss /= total_size
   return l2loss
 
-def run_inference()
+def run_inference():
     assert not np.isnan(batch_loss)
     # TODO inference every now and then
     #print(l)
@@ -478,20 +478,20 @@ def train_on_plouffe_copy(checkpoint_name = 'Holuhraun'):
     # TODO inference
     max_num_epoch = 100
     sample_step = 100
-    seq_length = 200
+    num_frames = 200
     num_step = 100
     cell_size = 64
     ########
     # Define the Computational Graph
     ########
-    encoder_input_ph = tf.placeholder(dtype=tf.float32,shape=(batch_size, seq_length, num_features), name='encoder_input')
+    encoder_input_ph = tf.placeholder(dtype=tf.float32,shape=(batch_size, num_frames, num_nodes), name='encoder_input')
     encoder_input, seq_length, decoder_input, decoder_target = preprocess(encoder_input_ph,
-                                                                          seq_length,
+                                                                          num_frames,
                                                                           batch_size,
-                                                                          num_features)
-
+                                                                          num_nodes)
+    #pdb.set_trace()
     encoder_output, encoder_state = init_simple_encoder(LSTMCell(cell_size), encoder_input, seq_length)
-    decoder_logits = init_decoder_train(LSTMCell(cell_size), decoder_target, seq_length, encoder_state, num_features)
+    decoder_logits = init_decoder_train(LSTMCell(cell_size), decoder_target, seq_length, encoder_state, num_nodes)
     loss, train_op = init_optimizer(decoder_logits, decoder_target)
     ########
     # Run Graph
@@ -506,15 +506,15 @@ def train_on_plouffe_copy(checkpoint_name = 'Holuhraun'):
 
         train_iterator = PlouffeAnimation.Iterator(training_data,
                                                    num_nodes,
-                                                   seq_length,
+                                                   num_frames,
                                                    batch_size)
 
         valid_iterator = PlouffeAnimation.Iterator(valid_data,
                                                    num_nodes,
-                                                   seq_length,
+                                                   num_frames,
                                                    batch_size)
 
-        step, mean_loss = 0,0
+        train_epoch_mean_loss, valid_epoch_mean_loss, step, mean_loss = 0,0,0,0
         train_losses, valid_losses = [], []
         current_epoch = 0
         while current_epoch < max_num_epoch:
@@ -530,6 +530,7 @@ def train_on_plouffe_copy(checkpoint_name = 'Holuhraun'):
                 duration = time.time() - start_time
                 mean_train_duration += duration
                 step_desc = ('Epoch {}: loss = {} ({:.2f} sec/step)'.format(current_epoch, train_batch_loss, duration))
+                #pdb.set_trace()
                 train_epoch_mean_loss += train_batch_loss
                 train_epoch.set_description(step_desc)
                 train_epoch.refresh()
@@ -546,9 +547,10 @@ def train_on_plouffe_copy(checkpoint_name = 'Holuhraun'):
                 duration = time.time() - start_time
                 mean_valid_duration += duration
                 step_desc = ('Epoch {}: loss = {} ({:.2f} sec/step)'.format(current_epoch, valid_batch_loss, duration))
-                valid_epoch_mean_loss += valid_batch_loss
+                valid_epoch_mean_loss += valid_batch_loss[0]
                 valid_epoch.set_description(step_desc)
                 valid_epoch.refresh()
+
             ### Logging
             log_dict['Epoch'] = current_epoch
             log_dict['TrainingLoss'] = train_epoch_mean_loss/num_train_steps
@@ -557,6 +559,7 @@ def train_on_plouffe_copy(checkpoint_name = 'Holuhraun'):
             log_dict['MeanValidationDuration'] = mean_valid_duration/num_valid_steps
 
             log_df = pd.DataFrame(log_dict)
+
             ### Testing
             if current_epoch % sample_step == 0:
                 test_and_display()
