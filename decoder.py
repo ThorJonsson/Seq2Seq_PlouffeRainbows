@@ -10,19 +10,20 @@ from tensorflow.python.ops import math_ops
 from tensorflow.python.util import nest
 
 from tensorflow.contrib import layers
-from tensorflow.python.ops import rnn
+import rnn
 from tensorflow.python.ops import tensor_array_ops
 from tensorflow.python.ops import variable_scope as vs
 import pdb
 
 
 def simple_decoder_fn_train(encoder_state, name=None):
+    # This function manages the variables as they are passed around in the decoder
     with ops.name_scope(name, "simple_decoder_fn_train", [encoder_state]):
         pass
 
     def decoder_fn(time, cell_state, cell_input, cell_output, context_state):
         with ops.name_scope(name, "simple_decoder_fn_train",[time, cell_state, cell_input, cell_output, context_state]):
-            if cell_state is None:
+            if cell_state is None: # means that we are at time step 0
                 return (None, encoder_state, cell_input, cell_output, context_state)
             else:
                 return (None, cell_state, cell_input, cell_output, context_state)
@@ -31,7 +32,7 @@ def simple_decoder_fn_train(encoder_state, name=None):
 
 
 def regression_decoder_fn_inference(encoder_state,
-                                    seq_length,
+                                    maximum_length,
                                     batch_size,
                                     num_features,
                                     dtype=dtypes.int32,
@@ -39,8 +40,8 @@ def regression_decoder_fn_inference(encoder_state,
                                     name=None):
     """ Same function as simple_decoder_fn_inference but for regression on sequences with a fixed length
     """
-    with ops.name_scope(name, "simple_decoder_fn_inference", [output_fn, encoder_state, seq_length, batch_size, num_features, dtype]):
-        seq_length = ops.convert_to_tensor(seq_length, dtype)
+    with ops.name_scope(name, "simple_decoder_fn_inference", [output_fn, encoder_state, maximum_length, batch_size, num_features, dtype]):
+        maximum_length = ops.convert_to_tensor(maximum_length, dtype)
         if output_fn is None:
             output_fn = lambda x: x # just take the output of the decoder
 
@@ -56,13 +57,14 @@ def regression_decoder_fn_inference(encoder_state,
                 next_input = array_ops.ones([batch_size, num_features], dtype=dtype)
                 done = array_ops.zeros([batch_size], dtype=dtypes.bool)
                 cell_state = encoder_state
-                cell_output = array_ops.zeros([num_features], dtype=dtypes.float32)
+                cell_output = array_ops.zeros([10,num_features], dtype=dtypes.float32)
             else:
                 cell_output = output_fn(cell_output)
+                done = math_ops.equal(0,1) # hardcoded hack just to properly define done
             next_input = cell_output
             # if time > maxlen, return all true vector
-            done = control_flow_ops.cond(math_ops.greater(time, seq_length),
-                                         lambda: array_ops.ones([batch_size, num_features], dtype=dtypes.bool),
+            done = control_flow_ops.cond(math_ops.greater(time, maximum_length),
+                                         lambda: array_ops.ones([batch_size,], dtype=dtypes.bool),
                                          lambda: done)
             return (done, cell_state, next_input, cell_output, context_state)
     return decoder_fn
@@ -137,7 +139,6 @@ def dynamic_rnn_decoder(cell, decoder_fn, inputs=None, sequence_length=None,
                     next_cell_input = control_flow_ops.cond(math_ops.equal(time, max_time),
                                                             lambda: array_ops.zeros([batch_size, input_depth], dtype=dtype),
                                                             lambda: inputs_ta.read(time))
-                pdb.set_trace()
                 (next_done, next_cell_state, next_cell_input, emit_output, next_context_state) = decoder_fn(time,
                                                                                                             cell_state,
                                                                                                             next_cell_input,
