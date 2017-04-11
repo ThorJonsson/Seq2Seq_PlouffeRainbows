@@ -79,7 +79,7 @@ def regression_decoder_fn_inference(encoder_state,
                 done = array_ops.zeros([batch_size], dtype=dtypes.bool)
             # next_input = next_input
             # if time > maxlen, return all true vector
-            done = control_flow_ops.cond(math_ops.greater(time, max_sequence_length),
+            done = control_flow_ops.cond(math_ops.greater(time, max_sequence_length-1),
                                          lambda: array_ops.ones([batch_size,], dtype=dtypes.bool),
                                          lambda: done)
             return (done, cell_state, next_input, cell_output, context_state)

@@ -354,7 +354,7 @@ def init_simple_encoder(encoder_cell, encoder_inputs, encoder_inputs_length):
 
 
 # Make a decoder function
-def init_decoder_train(decoder_cell, context_vector, encoder_state, decoder_targets, max_sequence_length, num_features):
+def decoder_teacher_forcing(decoder_cell, context_vector, encoder_state, decoder_targets, max_sequence_length, num_features):
     """
     Args:
       decoder_cell: The type of a gated RNN architecture that we use for the decoder
@@ -385,7 +385,7 @@ def init_decoder_train(decoder_cell, context_vector, encoder_state, decoder_targ
     return decoder_logits
 
 
-def init_decoder_inference(decoder_cell, context_vector, encoder_state, batch_size, max_sequence_length, num_features):
+def decoder_inference(decoder_cell, context_vector, encoder_state, batch_size, max_sequence_length, num_features):
     """
     Args:
       decoder_cell: The type of a gated RNN architecture that we use for the decoder
@@ -417,9 +417,7 @@ def init_decoder_inference(decoder_cell, context_vector, encoder_state, batch_si
                                                     scope=scope)
 
         decoder_logits_inference, decoder_state_inference, decoder_context_state_inference = decoder_inference_out
-        # We need the values to be between 0 and 1 to be easy to parameterize with a network for regression
-        decoder_prediction_inference = decoder_logits_inference*num_features
-    return decoder_prediction_inference
+    return decoder_logits_inference
 
 # Setup optimizer function (returns the train_op)
 def init_optimizer(decoder_logits, decoder_targets):
@@ -488,19 +486,29 @@ def run_inference():
                 break
         print()
 
+def sample_Bernoulli(p=0.5):
+    """
+    Args:
+      p: a float32 between 0 and 1 indicating the threshold
+    Returns:
+      a boolean sampled from a Bernoulli distribution
+    """
+    x = tf.random_uniform(())
+    return tf.greater_equal(x,tf.constant(p))
+
 
 def test_and_display(session, encoder_input_ph, decoder_predict):
-    ''' This is what we want to reproduce with the network.
+    ''' This is what we want to reproduce with the network.'''
     N = 200 # Set number of nodes
     n_frames = 200
     limit = 102
     G = PlouffeAnimation.PlouffeSequence(N,98,limit,n_frames) # Initialize the graph G
     anim = FuncAnimation(G.fig, G.next_frame,frames=n_frames, blit=True)
-    anim.save('PlouffeSequence200_98_102.gif', dpi=80, writer='imagemagick')
-    '''
-    feed_dict = {}
-    my_prediction = session.run(decoder_predict)
-    print(my_prediction)
+    plt.show()
+    #anim.save('PlouffeSequence200_98_102.gif', dpi=80, writer='imagemagick')
+    #feed_dict = {}
+    #my_prediction = session.run(decoder_predict)
+    #print(my_prediction)
 
 def train_on_plouffe_copy(checkpoint_name = 'Holuhraun'):
     log_dict = {'CheckpointName': checkpoint_name,'Epoch': [], 'TrainingLoss': [], 'MeanTrainingDuration': [], 'ValidationLoss': [], 'MeanValidDuration':[]}
@@ -516,10 +524,13 @@ def train_on_plouffe_copy(checkpoint_name = 'Holuhraun'):
     max_num_epoch = 100
     sample_step = 100
     num_step = 100
+    p = 0.5
     ########
     # Define the Computational Graph
     ########
     encoder_input_ph = tf.placeholder(dtype=tf.float32, shape=(batch_size, num_frames, num_nodes), name='encoder_input')
+    is_validation = tf.placeholder(tf.bool, name='is_validation')
+
     encoder_input, seq_length, decoder_input, decoder_target = preprocess(encoder_input_ph,
                                                                           num_frames,
                                                                           batch_size,
@@ -530,23 +541,30 @@ def train_on_plouffe_copy(checkpoint_name = 'Holuhraun'):
                                                         seq_length)
     context_vector = encoder_output[-1]
 
-    decoder_logits = init_decoder_train(LSTMCell(cell_size),
-                                        context_vector,
-                                        encoder_state,
-                                        decoder_target,
-                                        seq_length,
-                                        num_nodes)
+
+    decoder_logits_train = decoder_teacher_forcing(LSTMCell(cell_size),
+                                                   context_vector,
+                                                   encoder_state,
+                                                   decoder_target,
+                                                   seq_length,
+                                                   num_nodes)
+
+    decoder_logits_test = decoder_inference(LSTMCell(cell_size),
+                                            context_vector,
+                                            encoder_state,
+                                            batch_size,
+                                            num_frames,
+                                            num_nodes)
+
+
+    is_teacher_forcing = tf.logical_or(sample_Bernoulli(p), is_validation)
+
+    decoder_logits = tf.where(is_teacher_forcing, decoder_logits_train, decoder_logits_test)
 
     loss, train_op = init_optimizer(decoder_logits, decoder_target)
+    # We need the values to be between 0 and 1 to be easy to parameterize with a network for regression
+    decoder_prediction = decoder_logits*num_nodes
 
-    decoder_logits_val = init_decoder_inference(LSTMCell(cell_size),
-                                                context_vector,
-                                                encoder_state,
-                                                batch_size,
-                                                num_frames,
-                                                num_nodes)
-
-    loss_val = l2_loss(logits=decoder_logits_val, targets=decoder_target)
     ########
     # Run Graph
     ########
@@ -577,7 +595,7 @@ def train_on_plouffe_copy(checkpoint_name = 'Holuhraun'):
             train_epoch = trange(num_train_steps, desc='Loss', leave=True)
             ### Training
             for _ in train_epoch:
-                feed_dict = {encoder_input_ph: train_iterator.next_batch()}
+                feed_dict = {encoder_input_ph: train_iterator.next_batch(), is_validation: False}
                 start_time = time.time()
                 train_batch_loss,_ = session.run([loss, train_op], feed_dict)
                 duration = time.time() - start_time
@@ -593,10 +611,9 @@ def train_on_plouffe_copy(checkpoint_name = 'Holuhraun'):
             valid_epoch = trange(num_valid_steps, desc='Loss', leave=True)
             ### Validating
             for _ in valid_epoch:
-                pdb.set_trace()
-                feed_dict = {encoder_input_ph: valid_iterator.next_batch()}
+                feed_dict = {encoder_input_ph: valid_iterator.next_batch(), is_validation: True}
                 start_time = time.time()
-                valid_batch_loss = session.run([loss_val], feed_dict)
+                valid_batch_loss = session.run([loss], feed_dict)
                 duration = time.time() - start_time
                 mean_valid_duration += duration
                 step_desc = ('Epoch {}: loss = {} ({:.2f} sec/step)'.format(current_epoch, valid_batch_loss, duration))
@@ -612,11 +629,11 @@ def train_on_plouffe_copy(checkpoint_name = 'Holuhraun'):
             log_dict['MeanValidationDuration'] = mean_valid_duration/num_valid_steps
 
             log_df = pd.DataFrame(log_dict)
-
+            current_epoch += 1
             ### Testing
             # Here we use the model in its current state and we try to reproduce the Plouffe Graph for an interesting
             # case.
-            if current_epoch % sample_step == 0:
+            if current_epoch % sample_step == 5:
                 test_and_display(session, decoder_prediction)
 
 
