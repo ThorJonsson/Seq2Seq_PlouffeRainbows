@@ -912,9 +912,8 @@ def raw_rnn(cell, loop_fn,
     (elements_finished, next_input, initial_state, emit_structure,
      init_loop_state) = loop_fn(
          time, None, None, None)  # time, cell_output, cell_state, loop_state
-    pdb.set_trace()
     flat_input = nest.flatten(next_input)
-
+    #pdb.set_trace()
     # Need a surrogate loop state for the while_loop if none is available.
     loop_state = (init_loop_state if init_loop_state is not None
                   else constant_op.constant(0, dtype=dtypes.int32))
@@ -952,6 +951,8 @@ def raw_rnn(cell, loop_fn,
         for i, dtype_i in enumerate(flat_emit_dtypes)]
     emit_ta = nest.pack_sequence_as(structure=emit_structure,
                                     flat_sequence=flat_emit_ta)
+
+    # Prepends the batch size for cell output
     flat_zero_emit = [
         array_ops.zeros(
             _state_size_with_prefix(size_i, prefix=[batch_size]),
@@ -978,7 +979,6 @@ def raw_rnn(cell, loop_fn,
       Returns:
         Tuple having the same size as Args but with updated values.
       """
-      pdb.set_trace()
       (next_output, cell_state) = cell(current_input, state)
 
       nest.assert_same_structure(state, cell_state)
@@ -1011,7 +1011,6 @@ def raw_rnn(cell, loop_fn,
         # pylint: enable=g-long-lambda,cell-var-from-loop
         return nest.pack_sequence_as(
             structure=current, flat_sequence=result_flat)
-
       emit_output = _copy_some_through(zero_emit, emit_output)
       next_state = _copy_some_through(state, next_state)
 

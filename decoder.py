@@ -8,48 +8,63 @@ from tensorflow.python.ops import array_ops
 from tensorflow.python.ops import control_flow_ops
 from tensorflow.python.ops import math_ops
 from tensorflow.python.util import nest
-
+import tensorflow as tf
 from tensorflow.contrib import layers
 import rnn
 from tensorflow.python.ops import tensor_array_ops
 from tensorflow.python.ops import variable_scope as vs
 import pdb
+slim = tf.contrib.slim
 
-
-def simple_decoder_fn_train(encoder_state, name=None):
-    # This function manages the variables as they are passed around in the decoder
-    with ops.name_scope(name, "simple_decoder_fn_train", [encoder_state]):
+def simple_decoder_fn_train(encoder_state, context_vector, name=None):
+    """
+    This function manages the variables as they are passed around in the decoder
+    Args:
+      encoder_state
+      context_vector
+    Returns: decoder_fn
+    """
+    with ops.name_scope(name, "simple_decoder_fn_train", [encoder_state, context_vector]):
         pass
 
     def decoder_fn(time, cell_state, cell_input, cell_output, context_state):
+        """
+        This is the loop function for the decoder during training
+        Args: time
+              cell_state
+              cell_input
+              cell_output
+              context_state
+        """
         with ops.name_scope(name, "simple_decoder_fn_train",[time, cell_state, cell_input, cell_output, context_state]):
             if cell_state is None: # means that we are at time step 0
                 return (None, encoder_state, cell_input, cell_output, context_state)
-            else:
+            else: #TODO consider concatenating the cell_output with the context_vector
                 return (None, cell_state, cell_input, cell_output, context_state)
 
     return decoder_fn
 
 
 def regression_decoder_fn_inference(encoder_state,
-                                    maximum_length,
+                                    context_vector,
+                                    max_sequence_length,
                                     batch_size,
                                     num_features,
-                                    dtype=dtypes.int32,
                                     output_fn=None,
+                                    dtype=dtypes.float32,
                                     name=None):
     """ Same function as simple_decoder_fn_inference but for regression on sequences with a fixed length
     """
-    with ops.name_scope(name, "simple_decoder_fn_inference", [output_fn, encoder_state, maximum_length, batch_size, num_features, dtype]):
-        maximum_length = ops.convert_to_tensor(maximum_length, dtype)
+    with ops.name_scope(name, "simple_decoder_fn_inference", [output_fn, encoder_state, context_vector, max_sequence_length, batch_size, num_features, dtype]):
+        max_sequence_length = ops.convert_to_tensor(max_sequence_length, dtypes.int32)
         if output_fn is None:
-            output_fn = lambda x: x # just take the output of the decoder
-
-    def decoder_fn(time, cell_state, cell_input, cell_output, context_state):
+            output_fn = lambda x: x
+    def decoder_fn(time, cell_state, cell_input, cell_output, context_state, context_vector=context_vector):
         """
         Again same as in simple_decoder_fn_inference but for regression on sequences with a fixed length
         """
-        with ops.name_scope(name, "simple_decoder_fn_inference", [time, cell_state, cell_input, cell_output, context_state]):
+        with ops.name_scope(name, "simple_decoder_fn_inference", [time, cell_state, cell_input, cell_output,
+                                                                  context_state, context_vector]):
             if cell_input is not None:
                 raise ValueError("Expected cell_input to be None, but saw: %s" % cell_input)
             if cell_output is None:
@@ -57,13 +72,14 @@ def regression_decoder_fn_inference(encoder_state,
                 next_input = array_ops.ones([batch_size, num_features], dtype=dtype)
                 done = array_ops.zeros([batch_size], dtype=dtypes.bool)
                 cell_state = encoder_state
-                cell_output = array_ops.zeros([10,num_features], dtype=dtypes.float32)
+                cell_output = array_ops.zeros([num_features],dtype=dtype)
             else:
-                cell_output = output_fn(cell_output)
-                done = math_ops.equal(0,1) # hardcoded hack just to properly define done
-            next_input = cell_output
+                cell_output = slim.fully_connected(cell_output, 100)
+                next_input = cell_output
+                done = array_ops.zeros([batch_size], dtype=dtypes.bool)
+            # next_input = next_input
             # if time > maxlen, return all true vector
-            done = control_flow_ops.cond(math_ops.greater(time, maximum_length),
+            done = control_flow_ops.cond(math_ops.greater(time, max_sequence_length),
                                          lambda: array_ops.ones([batch_size,], dtype=dtypes.bool),
                                          lambda: done)
             return (done, cell_state, next_input, cell_output, context_state)
@@ -73,7 +89,6 @@ def regression_decoder_fn_inference(encoder_state,
 def dynamic_rnn_decoder(cell, decoder_fn, inputs=None, sequence_length=None,
                         parallel_iterations=None, swap_memory=False,
                         time_major=False, scope=None, name=None):
-    #pdb.set_trace()
     with ops.name_scope(name, "dynamic_rnn_decoder", [cell, decoder_fn, inputs, sequence_length,
                                               parallel_iterations, swap_memory, time_major, scope]):
         '''
@@ -117,13 +132,13 @@ def dynamic_rnn_decoder(cell, decoder_fn, inputs=None, sequence_length=None,
                 if loop_state is not None:
                     raise ValueError("Expected loop_state to be None when cell_state "
                                    "is None, but saw: %s" % loop_state)
-                context_state = None
+                encoder_state = None
             else:  # subsequent calls, inside while loop, after cell excution
                 if isinstance(loop_state, tuple):
-                    (done, context_state) = loop_state
+                    (done, encoder_state) = loop_state
                 else:
                     done = loop_state
-                    context_state = None
+                    encoder_state = None
 
             # call decoder function
             if inputs is not None:  # training
@@ -143,14 +158,14 @@ def dynamic_rnn_decoder(cell, decoder_fn, inputs=None, sequence_length=None,
                                                                                                             cell_state,
                                                                                                             next_cell_input,
                                                                                                             cell_output,
-                                                                                                            context_state)
+                                                                                                            encoder_state)
             else:  # inference
                 # next_cell_input is obtained through decoder_fn
                 (next_done, next_cell_state, next_cell_input, emit_output, next_context_state) = decoder_fn(time,
                                                                                                             cell_state,
                                                                                                             None,
                                                                                                             cell_output,
-                                                                                                            context_state)
+                                                                                                            encoder_state)
 
             # check if we are done
             if next_done is None:  # training

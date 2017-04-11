@@ -324,6 +324,7 @@ def train_on_fibonacci_split():
                         break
                 print()
 
+
 def preprocess(encoder_input, seq_length, batch_size, num_features):
     """
     This function takes a placeholder representing the encoder_input, and appends EOS to the front of it. 
@@ -340,6 +341,7 @@ def preprocess(encoder_input, seq_length, batch_size, num_features):
 
     return encoder_input, encoder_input_lengths, decoder_input, decoder_target
 
+
 # Make an encoder function
 def init_simple_encoder(encoder_cell, encoder_inputs, encoder_inputs_length):
     with tf.variable_scope("Encoder") as scope:
@@ -350,42 +352,71 @@ def init_simple_encoder(encoder_cell, encoder_inputs, encoder_inputs_length):
                                                            dtype=tf.float32)
         return encoder_outputs, encoder_state
 
+
 # Make a decoder function
-def init_decoder_train(decoder_cell, decoder_targets, decoder_targets_length, encoder_state, num_features):
+def init_decoder_train(decoder_cell, context_vector, encoder_state, decoder_targets, max_sequence_length, num_features):
+    """
+    Args:
+      decoder_cell: The type of a gated RNN architecture that we use for the decoder
+      context_vector: The last output of the encoder, which we condition on to reproduce the sequence
+      encoder_state: The last hidden state of the encoder network
+      decoder_targets: For teacher forcing! The sequence of vectors that the decoder ought to produce
+      max_sequence_length: The longest sequence in the minibatch. To stop the decoder when training
+      num_features: How many features to project the output of the RNN onto
+    Returns:
+      decoder_logits: A set of logits to be passed to our objective function
+    """
     with tf.variable_scope("Decoder") as scope:
         def output_fn(outputs):
             return slim.fully_connected(outputs, num_features, scope=scope)
 
-        # TODO Comment
+        decoder_fn_train = simple_decoder_fn_train(encoder_state, context_vector)
+
         decoder_output = dynamic_rnn_decoder(cell=decoder_cell,
-                                             decoder_fn=simple_decoder_fn_train(encoder_state=encoder_state),
+                                             decoder_fn=decoder_fn_train,
                                              inputs=decoder_targets,
-                                             sequence_length=decoder_targets_length,
+                                             sequence_length=max_sequence_length,
                                              time_major=True,
                                              scope=scope)
 
         decoder_outputs, decoder_state, decoder_context_state = decoder_output
 
         decoder_logits = output_fn(decoder_outputs)
-        return decoder_logits
+    return decoder_logits
 
 
-def init_decoder_inference(decoder_cell, encoder_state, max_num_frames, batch_size, num_features, output_fn=None):
+def init_decoder_inference(decoder_cell, context_vector, encoder_state, batch_size, max_sequence_length, num_features):
+    """
+    Args:
+      decoder_cell: The type of a gated RNN architecture that we use for the decoder
+      context_vector: The last output of the encoder, which we condition on to reproduce the sequence
+      encoder_state: The last hidden state of the encoder network
+      decoder_targets: For teacher forcing! The sequence of vectors that the decoder ought to produce
+      max_sequence_length: The longest sequence in the minibatch. To stop the decoder when training
+      num_features: How many features to project the output of the RNN onto
+      batch_size: Needed to make a minibatch of GO tokens for the decoder
+    Returns:
+      decoder_prediction_inference: A reproduced PlouffeGraph given by the decoder
+    """
     with tf.variable_scope("Decoder") as scope:
+        def output_fn(outputs):
+            return slim.fully_connected(outputs, num_features, scope=scope)
+
         scope.reuse_variables()
 
         decoder_fn_inference = regression_decoder_fn_inference(encoder_state,
-                                                               max_num_frames,
+                                                               context_vector,
+                                                               max_sequence_length,
                                                                batch_size,
                                                                num_features,
-                                                               output_fn=output_fn)
+                                                               output_fn)
 
         decoder_inference_out = dynamic_rnn_decoder(cell=decoder_cell,
                                                     decoder_fn=decoder_fn_inference,
                                                     time_major=True,
                                                     scope=scope)
 
-        decoder_logits_inference, self.decoder_state_inference, self.decoder_context_state_inference = decoder_inference_out
+        decoder_logits_inference, decoder_state_inference, decoder_context_state_inference = decoder_inference_out
         # We need the values to be between 0 and 1 to be easy to parameterize with a network for regression
         decoder_prediction_inference = decoder_logits_inference*num_features
     return decoder_prediction_inference
@@ -458,7 +489,7 @@ def run_inference():
         print()
 
 
-def test_and_display(session, decoder_predict):
+def test_and_display(session, encoder_input_ph, decoder_predict):
     ''' This is what we want to reproduce with the network.
     N = 200 # Set number of nodes
     n_frames = 200
@@ -467,6 +498,7 @@ def test_and_display(session, decoder_predict):
     anim = FuncAnimation(G.fig, G.next_frame,frames=n_frames, blit=True)
     anim.save('PlouffeSequence200_98_102.gif', dpi=80, writer='imagemagick')
     '''
+    feed_dict = {}
     my_prediction = session.run(decoder_predict)
     print(my_prediction)
 
@@ -475,41 +507,46 @@ def train_on_plouffe_copy(checkpoint_name = 'Holuhraun'):
     ########
     # Set Hyperparameters
     ########
-    dataset_size = 1000
+    num_frames = 200
     num_nodes = 100
     batch_size = 10
+    cell_size = 64
     # TODO inference
+    dataset_size = 1000
     max_num_epoch = 100
     sample_step = 100
-    num_frames = 200
     num_step = 100
-    cell_size = 64
     ########
     # Define the Computational Graph
     ########
-    encoder_input_ph = tf.placeholder(dtype=tf.float32,shape=(batch_size, num_frames, num_nodes), name='encoder_input')
+    encoder_input_ph = tf.placeholder(dtype=tf.float32, shape=(batch_size, num_frames, num_nodes), name='encoder_input')
     encoder_input, seq_length, decoder_input, decoder_target = preprocess(encoder_input_ph,
                                                                           num_frames,
                                                                           batch_size,
                                                                           num_nodes)
-    #pdb.set_trace()
+
     encoder_output, encoder_state = init_simple_encoder(LSTMCell(cell_size),
                                                         encoder_input,
                                                         seq_length)
+    context_vector = encoder_output[-1]
 
     decoder_logits = init_decoder_train(LSTMCell(cell_size),
+                                        context_vector,
+                                        encoder_state,
                                         decoder_target,
                                         seq_length,
-                                        encoder_state,
                                         num_nodes)
 
-    decoder_prediction = init_decoder_inference(LSTMCell(cell_size),
+    loss, train_op = init_optimizer(decoder_logits, decoder_target)
+
+    decoder_logits_val = init_decoder_inference(LSTMCell(cell_size),
+                                                context_vector,
                                                 encoder_state,
-                                                num_frames,
                                                 batch_size,
+                                                num_frames,
                                                 num_nodes)
 
-    loss, train_op = init_optimizer(decoder_logits, decoder_target)
+    loss_val = l2_loss(logits=decoder_logits_val, targets=decoder_target)
     ########
     # Run Graph
     ########
@@ -546,7 +583,6 @@ def train_on_plouffe_copy(checkpoint_name = 'Holuhraun'):
                 duration = time.time() - start_time
                 mean_train_duration += duration
                 step_desc = ('Epoch {}: loss = {} ({:.2f} sec/step)'.format(current_epoch, train_batch_loss, duration))
-                #pdb.set_trace()
                 train_epoch_mean_loss += train_batch_loss
                 train_epoch.set_description(step_desc)
                 train_epoch.refresh()
@@ -557,9 +593,10 @@ def train_on_plouffe_copy(checkpoint_name = 'Holuhraun'):
             valid_epoch = trange(num_valid_steps, desc='Loss', leave=True)
             ### Validating
             for _ in valid_epoch:
+                pdb.set_trace()
                 feed_dict = {encoder_input_ph: valid_iterator.next_batch()}
                 start_time = time.time()
-                valid_batch_loss = session.run([loss], feed_dict)
+                valid_batch_loss = session.run([loss_val], feed_dict)
                 duration = time.time() - start_time
                 mean_valid_duration += duration
                 step_desc = ('Epoch {}: loss = {} ({:.2f} sec/step)'.format(current_epoch, valid_batch_loss, duration))
