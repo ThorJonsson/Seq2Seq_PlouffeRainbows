@@ -118,7 +118,7 @@ def train_many_jobs(sess_args):
 
     # Number of log directory
     log_dir_num = 1
-    log_dir_path = os.getcwd() + sess_args['globalParams.checkpointDir']
+    log_dir_path = '/work/thor/DLFractalSequences/plouffe' + sess_args['globalParams.checkpointDir']
 
     # Hyperparameters
     lr_bin = sess_args['hyperparameters.learningRate']
