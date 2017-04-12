@@ -1,17 +1,47 @@
+import sys
+# Append other folders to system path
+sys.path.append("../plouffe")
 import math
 import numpy as np
 import random
 import tensorflow as tf
 import seq2seq
 from tensorflow.contrib.rnn import LSTMCell, LSTMStateTuple, GRUCell
-from decoder import simple_decoder_fn_train, regression_decoder_fn_inference
-import seq_utils
+from decoder import simple_decoder_fn_train, regression_decoder_fn_inference, dynamic_rnn_decoder
+import sys
 import PlouffeAnimation
 import pdb
 from tqdm import trange
 import time
 
 slim = tf.contrib.slim
+import pandas as pd
+import matplotlib.pyplot as plt
+from matplotlib import rc
+from matplotlib.animation import FuncAnimation
+
+slim = tf.contrib.slim
+checkpoint_path = '../logs/test'
+
+def make_dataset(size,max_seq_length,num_dim):
+    """
+    This function makes a toy dataset of random sequences of variable length (up to max_seq_length)
+    The components of the sequences are vectors.
+    Args: size: the size of our dataset
+           max_seq_length: the maximum length allowed for a sequence
+           num_dim: number of dimension for the components of the sequence
+    Returns: A tuple of:
+                    1. lists where each component of the list is a tensor representing a sequence
+                    2. list of python integers representing the length of the sequences in the other list
+    """
+    seqs = []
+    seqs_lengths = []
+    for i in range(size):
+        seq_i, seq_length_i = _get_preprocessed_random_sequence(max_seq_length,num_dim)
+        seqs.append(seq_i)
+        seqs_lengths.append(seq_length_i)
+    return seqs, seqs_lengths
+
 def preprocess(encoder_input, seq_length, batch_size, num_features):
     """
     This function takes a placeholder representing the encoder_input, and appends EOS to the front of it. 
@@ -147,13 +177,53 @@ def run_inference():
                 break
         print()
 
-def test_and_display():
-    N = 200 # Set number of nodes
-    n_frames = 200
-    limit = 102
-    G = PlouffeSequence(N,98,limit,n_frames) # Initialize the graph G
-    anim = FuncAnimation(G.fig, G.next_frame,frames=n_frames, blit=True)
-    anim.save('PlouffeSequence200_98_102.gif', dpi=80, writer='imagemagick')
+def sample_Bernoulli(p=0.5):
+    """
+    Args:
+      p: a float32 between 0 and 1 indicating the threshold
+    Returns:
+      a boolean sampled from a Bernoulli distribution
+    """
+    x = tf.random_uniform(())
+    return tf.greater_equal(x,tf.constant(p))
+
+
+#def test_and_display(session, encoder_input_ph, is_validation, decoder_predict):
+#    ''' This is what we want to reproduce with the network.'''
+#    N = 200 # Set number of nodes
+#    n_frames = 200
+#    limit = 102
+#    G = PlouffeAnimation.PlouffeSequence(N,98,limit,n_frames) # Initialize the graph G
+#    anim = FuncAnimation(G.fig, G.next_frame,frames=n_frames, blit=True)
+#    plt.show()
+#    anim.save('PlouffeSequence200_98_102.gif', dpi=80, writer='imagemagick')
+#    # TODO
+#    #feed_dict = {encoder_input_ph: }
+#    #my_prediction = session.run(decoder_predict)
+#    #print(my_prediction)
+
+
+def _save_df(log_df):
+    """Saves dataframe to hdf"""
+    file_name = checkpoint_path + '/' + 'holuhraun_df.pcl'
+    print('Saving dataframe to', file_name)
+    log_df.to_pickle(file_name)
+
+
+def _restore_checkpoint_variables(session,
+                                  global_step,
+                                  checkpoint_path):
+    """Initializes the model in the graph of a passed session with the
+    variables in the file found in `checkpoint_path`, except those excluded by
+    `checkpoint_exclude_scopes`.
+    """
+    if checkpoint_path is None:
+        return
+    else:
+        variables_to_restore = tf.global_variables()
+        variables_to_restore.append(global_step)
+        restorer = tf.train.Saver(var_list=variables_to_restore)
+        restorer.restore(sess=session, save_path=checkpoint_path)
 
 
 def train_on_plouffe_copy(checkpoint_name = 'Holuhraun'):
@@ -164,7 +234,8 @@ def train_on_plouffe_copy(checkpoint_name = 'Holuhraun'):
     dataset_size = 1000
     num_nodes = 100
     batch_size = 10
-    # TODO inference
+    cell_size = 64
+    dataset_size = 1000
     max_num_epoch = 100
     sample_step = 100
     seq_length = 200
@@ -173,7 +244,9 @@ def train_on_plouffe_copy(checkpoint_name = 'Holuhraun'):
     ########
     # Define the Computational Graph
     ########
-    encoder_input_ph = tf.placeholder(dtype=tf.float32,shape=(batch_size, seq_length, num_features), name='encoder_input')
+    encoder_input_ph = tf.placeholder(dtype=tf.float32, shape=(None, num_frames, num_nodes), name='encoder_input')
+    is_validation = tf.placeholder(tf.bool, name='is_validation')
+
     encoder_input, seq_length, decoder_input, decoder_target = preprocess(encoder_input_ph,
                                                                           seq_length,
                                                                           batch_size,
@@ -246,6 +319,9 @@ def train_on_plouffe_copy(checkpoint_name = 'Holuhraun'):
             log_dict['MeanValidationDuration'] = mean_valid_duration/num_valid_steps
 
             log_df = pd.DataFrame(log_dict)
+            _save_df(log_df)
+            current_epoch += 1
+            saver.save(sess=session, save_path=checkpoint_path)
             ### Testing
             if current_epoch % sample_step == 0:
                 test_and_display()
@@ -253,12 +329,3 @@ def train_on_plouffe_copy(checkpoint_name = 'Holuhraun'):
 
 if __name__=="__main__":
     train_on_plouffe_copy()
-    '''with tf.Session() as sess:
-        sess.run(tf.global_variables_initializer())
-        # Now we have encoder inputs and decoder targets so we need decoder inputs
-        # We need to make sure that we can replicate this for other classes (e.g. the Plouffe Fractal and Cellular
-        # Automata
-        my_loss, my_train_op = sess.run([loss, train_op])
-        # Next we need to
-        #train_on_fibonacci_split()
-    '''

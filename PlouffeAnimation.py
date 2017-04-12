@@ -37,6 +37,7 @@ class PlouffeGraph(object):
         self.graph = nx.Graph(data = self.data)
 
     def DrawGraph(self):
+        plt.cla() # Clear figure
         plt.figure(figsize=(8,8))
         nx.draw_circular(self.graph,node_size=10, alpha=0.7,with_labels = False)
         plt.axis('equal')
@@ -92,7 +93,7 @@ def make_dataset(_size, max_int = 50):
     return df
 
 
-def batch_up(inputs, batch_size, num_nodes, max_sequence_length):
+def batch_up(inputs, batch_size, num_nodes, num_frames=200):
     """
     Args:
         inputs:
@@ -109,8 +110,7 @@ def batch_up(inputs, batch_size, num_nodes, max_sequence_length):
             batch-sized list of integers specifying amount of active
             time steps in each input sequence
     """
-    #pdb.set_trace()
-    inputs_batch_major = np.zeros(shape=[batch_size, 200, num_nodes], dtype=np.float32) # == PAD
+    inputs_batch_major = np.zeros(shape=[batch_size, num_frames, num_nodes], dtype=np.float32) # == PAD
 
     for i, seq in enumerate(inputs):
         inputs_batch_major[i] = np.array(seq)*(1/float(num_nodes))
