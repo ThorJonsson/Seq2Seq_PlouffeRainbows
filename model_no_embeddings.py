@@ -7,12 +7,7 @@ import random
 import tensorflow as tf
 import seq2seq
 from tensorflow.contrib.rnn import LSTMCell, LSTMStateTuple, GRUCell
-<<<<<<< HEAD
-slim = tf.contrib.slim
-
-=======
 from decoder import simple_decoder_fn_train, regression_decoder_fn_inference, dynamic_rnn_decoder
->>>>>>> thor-dev
 import seq_utils
 import PlouffeAnimation
 import pdb
@@ -157,11 +152,6 @@ class Seq2SeqModel():
         The connector takes the decoder targets during training and applies EOS and PAD
         Note that here it's convenient to think about num_features axis as the z axis
         """
-<<<<<<< HEAD
-        self.get_eos_mask()
-        
-       
-
         with tf.name_scope('DecoderTrainFeeds'):
             sequence_size, batch_size = tf.unstack(tf.shape(self.decoder_targets))
 
