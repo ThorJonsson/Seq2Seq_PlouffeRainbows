@@ -3,3 +3,4 @@ notebooks/.ipynb*
 *.pyc
 fractal/
 .DS_Store
+plouffe/logs/
