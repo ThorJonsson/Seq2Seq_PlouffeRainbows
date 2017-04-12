@@ -19,6 +19,8 @@ PAD = 0
 EOS = 1
 
 slim = tf.contrib.slim
+#TODO
+checkpoint_path = ''
 
 def random_sequence(num_dim, num_length):
     # Realize walk
@@ -419,15 +421,13 @@ def decoder_inference(decoder_cell, context_vector, encoder_state, batch_size, m
         decoder_logits_inference, decoder_state_inference, decoder_context_state_inference = decoder_inference_out
     return decoder_logits_inference
 
+
 # Setup optimizer function (returns the train_op)
 def init_optimizer(decoder_logits, decoder_targets):
-    # Question: Why transpose?
-    #logits = tf.transpose(decoder_logits_train, [1, 0, 2])
-    #targets = tf.transpose(decoder_train_targets, [1, 0])
-    # TODO verify that home-made loss function works
     loss = l2_loss(logits=decoder_logits, targets=decoder_targets)
     train_op = tf.train.AdamOptimizer().minimize(loss)
     return loss, train_op
+
 
 def l2_loss(logits, targets, name=None):
   """l2 loss for a sequence of logits (per example).
@@ -540,7 +540,6 @@ def train_on_plouffe_copy(checkpoint_name = 'Holuhraun'):
     encoder_output, encoder_state = init_simple_encoder(LSTMCell(cell_size),
                                                         encoder_input,
                                                         seq_length)
-    pdb.set_trace()
     context_vector = encoder_output[-1]
 
 
@@ -566,7 +565,7 @@ def train_on_plouffe_copy(checkpoint_name = 'Holuhraun'):
     loss, train_op = init_optimizer(decoder_logits, decoder_target)
     # We need the values to be between 0 and 1 to be easy to parameterize with a network for regression
     decoder_prediction = decoder_logits*num_nodes
-
+    saver = tf.train.Saver(var_list=tf.global_variables())
     ########
     # Run Graph
     ########
@@ -632,6 +631,7 @@ def train_on_plouffe_copy(checkpoint_name = 'Holuhraun'):
 
             log_df = pd.DataFrame(log_dict)
             current_epoch += 1
+            saver.save(sess=session, save_path=checkpoint_path)
             ### Testing
             # Here we use the model in its current state and we try to reproduce the Plouffe Graph for an interesting
             # case.
