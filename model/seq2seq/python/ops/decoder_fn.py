@@ -28,7 +28,9 @@ from tensorflow.python.ops import math_ops
 from tensorflow.python.util import nest
 
 __all__ = ["simple_decoder_fn_train",
-           "simple_decoder_fn_inference"]
+           "simple_decoder_fn_inference",
+           "regression_decoder_fn_inference",
+          ]
 
 def simple_decoder_fn_train(encoder_state, name=None):
   """ Simple decoder function for a sequence-to-sequence model used in the
@@ -92,7 +94,7 @@ def simple_decoder_fn_train(encoder_state, name=None):
       next context state: `context_state`, this decoder function does not
       modify the given context state. The context state could be modified when
       applying e.g. beam search.
-  """
+    """
     with ops.name_scope(name, "simple_decoder_fn_train",
                         [time, cell_state, cell_input, cell_output,
                          context_state]):
@@ -219,30 +221,27 @@ def simple_decoder_fn_inference(output_fn, encoder_state, embeddings,
       next context state: `context_state`, this decoder function does not
       modify the given context state. The context state could be modified when
       applying e.g. beam search.
-  """
+    """
     with ops.name_scope(name, "simple_decoder_fn_inference",
-                        [time, cell_state, cell_input, cell_output,
-                         context_state]):
+                        [time, cell_state, cell_input, cell_output,context_state]):
       if cell_input is not None:
-        raise ValueError("Expected cell_input to be None, but saw: %s" %
-                         cell_input)
+        raise ValueError("Expected cell_input to be None, but saw: %s" % cell_input)
       if cell_output is None:
         # invariant that this is time == 0
-        next_input_id = array_ops.ones([batch_size,], dtype=dtype) * (
-            start_of_sequence_id)
+        next_input_id = array_ops.ones([batch_size,], dtype=dtype) * (start_of_sequence_id)
         done = array_ops.zeros([batch_size,], dtype=dtypes.bool)
         cell_state = encoder_state
-        cell_output = array_ops.zeros([num_decoder_symbols],
-                                      dtype=dtypes.float32)
+        cell_output = array_ops.zeros([num_decoder_symbols],dtype=dtypes.float32)
       else:
         cell_output = output_fn(cell_output)
-        next_input_id = math_ops.cast(
-            math_ops.argmax(cell_output, 1), dtype=dtype)
+        next_input_id = math_ops.cast(math_ops.argmax(cell_output, 1), dtype=dtype)
         done = math_ops.equal(next_input_id, end_of_sequence_id)
       next_input = array_ops.gather(embeddings, next_input_id)
       # if time > maxlen, return all true vector
       done = control_flow_ops.cond(math_ops.greater(time, maximum_length),
-          lambda: array_ops.ones([batch_size,], dtype=dtypes.bool),
-          lambda: done)
+                                   lambda: array_ops.ones([batch_size,], dtype=dtypes.bool),
+                                   lambda: done)
       return (done, cell_state, next_input, cell_output, context_state)
   return decoder_fn
+
+

@@ -1,5 +1,3 @@
-# Thor H. Jonsson
-# LSTM with Plouffe Sequences
 import tensorflow as tf
 import numpy as np
 import pandas as pd
@@ -12,22 +10,39 @@ from scipy.ndimage.interpolation import shift
 import pdb
 from IPython.display import HTML
 
-def make_FLAGS():
-    ### HyperParameters ###
-    flags = tf.flags
-    flags.DEFINE_integer('batch_size', 100, 'mini-batch size')
-    flags.DEFINE_integer('max_epoch', 600, 'maximum number of epochs')
-    flags.DEFINE_integer('save_every', 10, 'Saving frequency(epoch), 0 if you do not wish to save')
-    flags.DEFINE_integer('val_every', 1, 'Validate frequency(epoch), 0 if you do not wish to validate')
-    flags.DEFINE_float('lr', 0.01, 'learning rate')
-    flags.DEFINE_float('lr_decay', 1, 'learning rate decay')
-    flags.DEFINE_float('init_mom', 0.5, 'initial momentum')
-    flags.DEFINE_float('final_mom', 0.9, 'final momentum')
 
-    return flags.FLAGS
+def batch_up(inputs, batch_size,  max_sequence_length=None):
+    """
+    Args:
+        inputs:
+            list of sentences (integer lists)
+        max_sequence_length:
+            integer specifying how large should `max_time` dimension be.
+            If None, maximum sequence length would be used
 
+    Outputs:
+        inputs_time_major:
+            input sentences transformed into time-major matrix
+            (shape [max_time, batch_size]) padded with 0s
+        sequence_lengths:
+            batch-sized list of integers specifying amount of active
+            time steps in each input sequence
+    """
+    sequence_lengths = [len(seq) for seq in inputs]
 
-basis_len = 50
+    if max_sequence_length is None:
+        max_sequence_length = max(sequence_lengths)
+
+    inputs_batch_major = np.zeros(shape=[batch_size, max_sequence_length], dtype=np.int32) # == PAD
+
+    for i, seq in enumerate(inputs):
+        for j, element in enumerate(seq):
+            inputs_batch_major[i, j] = element
+
+    # [batch_size, max_time] -> [max_time, batch_size]
+    inputs_time_major = inputs_batch_major.swapaxes(0, 1)
+
+    return inputs_time_major, sequence_lengths
 
 
 class PlouffeGraph(object):
@@ -134,6 +149,7 @@ class PlouffeSequence(object):
         edges = nx.draw_networkx_edges(self.plouffe.graph,pos=self.pos)
         return nodes, edges
 
+
 def animate(plouffe_seq):
     '''
     Animates the Plouffe sequence and saves if to Plouffe_n_nodes_k_limit_n_frames.mp4
@@ -141,6 +157,7 @@ def animate(plouffe_seq):
     plt.cla()
     anim = FuncAnimation(plouffe_seq.fig, plouffe_seq.next_frame2draw,frames=plouffe_seq.n_frames, blit=True)
     return anim
+
 
 class Plouffe_df(object):
     '''
@@ -170,9 +187,9 @@ class Plouffe_df(object):
         df['PlouffeSeq'] = df.apply(self._set_plouffe_seq,axis=1)
         return df
 
-class PlouffeIterator(object):
+
+class Iterator(object):
     '''
-    NOT FINISHED
     This iterator takes a dataframe of PlouffeSequences and transforms it into a list of such sequences
     It then creates batches of such sequences
     each sequence has number of steps self.n_frames with each element of the sequence having dimensions n_nodes x 2
@@ -210,288 +227,51 @@ class PlouffeIterator(object):
 
         return x, y, batch_len
 
-# ATH NO EMBEDDINGS
-class Seq2SeqModel():
 
-    EOS = 0
-    PAD = 1
-
-    def __init__(self, encoder_cell, decoder_cell, num_nodes, bidirectional = True, attention=False)
-        self.bidirectional = bidirectional
-        self.attention = attention
+# Simple bucket sequence iterator
+class Iterator(object):
+    def __init__(self, num_nodes = 10, batch_size = 64, num_buckets = 5):
+        self.batch_size = batch_size
         self.num_nodes = num_nodes
-
-        self.encoder_cell = encoder_cell
-        self.decoder_cell = decoder_cell
-
-        self._make_graph()
-
-    @property
-    def decoder_hidden_units(self):
-        return self.decoder_cell.output_size
-
-    def _init_placeholders():
-        """ Everything is time-major """
-        self.encoder_inputs = tf.placeholder(
-            shape=(None, None),
-            dtype=tf.int32,
-            name='encoder_inputs',
-        )
-        self.encoder_inputs_length = tf.placeholder(
-            shape=(None,),
-            dtype=tf.int32,
-            name='encoder_inputs_length',
-        )
-
-        # required for training, not required for testing
-        self.decoder_targets = tf.placeholder(
-            shape=(None, None),
-            dtype=tf.int32,
-            name='decoder_targets'
-        )
-        self.decoder_targets_length = tf.placeholder(
-            shape=(None,),
-            dtype=tf.int32,
-            name='decoder_targets_length',
-        )
+        self.size = int(len(self.sequences)/num_buckets)
+        self.bucket_data = []
+        # Put the shortest sequences in the first bucket etc
+        # bucket_data is a list of 'buckets' where each bucket is a list of Sentences.
+        self.num_buckets = num_buckets
+        for bucket in range(self.num_buckets):
+            self.bucket_data.append(self.sequences[bucket*self.size: (bucket+1)*self.size -1])
+        self.cursor = np.array([0]*num_buckets)
+        self.shuffle()
+        self.epochs = 0
 
 
-    def _init_decoder_train_connectors(self):
-        """
-        During training, `decoder_targets`
-        and decoder logits. This means that their shapes should be compatible.
-
-        Here we do a bit of plumbing to set this up.
-        """
-        with tf.name_scope('DecoderTrainFeeds'):
-            sequence_size, batch_size = tf.unstack(tf.shape(self.decoder_targets))
+    def shuffle(self):
+        #sorts dataframe by sequence length, but keeps it random within the same length
+        for i in range(self.num_buckets):
+            random.shuffle(self.bucket_data[i])
+            self.cursor[i] = 0
 
 
-            EOS_SLICE = tf.ones([1, batch_size], dtype=tf.int32) * self.EOS
-            PAD_SLICE = tf.ones([1, batch_size], dtype=tf.int32) * self.PAD
+    def next_batch(self):
+        # if any of the buckets is full go to next epoch
+        if np.any(self.cursor+self.batch_size > self.size):
+            self.epochs += 1
+            self.shuffle() # Also resets cursor
 
-            self.decoder_train_inputs = tf.concat([EOS_SLICE, self.decoder_targets], axis=0)
-            self.decoder_train_length = self.decoder_targets_length + 1
+        i = np.random.randint(0,self.num_buckets)
+        all_seq = self.bucket_data[i][self.cursor[i]:self.cursor[i]+self.batch_size]
 
-            decoder_train_targets = tf.concat([self.decoder_targets, PAD_SLICE], axis=0)
-            decoder_train_targets_seq_len, _ = tf.unstack(tf.shape(decoder_train_targets))
-            decoder_train_targets_eos_mask = tf.one_hot(self.decoder_train_length - 1,
-                                                        decoder_train_targets_seq_len,
-                                                        on_value=self.EOS, off_value=self.PAD,
-                                                        dtype=tf.int32)
-            decoder_train_targets_eos_mask = tf.transpose(decoder_train_targets_eos_mask, [1, 0])
+        input_seq = []
+        target_seq = []
+        for seq in all_seq:
+            split_idx = np.random.choice(range(len(seq)))
+            input_seq.append(seq[0:split_idx])
+            target_seq.append(seq[split_idx:len(seq)])
 
-            # hacky way using one_hot to put EOS symbol at the end of target sequence
-            decoder_train_targets = tf.add(decoder_train_targets,
-                                           decoder_train_targets_eos_mask)
+        input_seq_time_major, input_seq_lengths = batch_up(input_seq, self.batch_size)
 
-            self.decoder_train_targets = decoder_train_targets
+        target_seq_time_major, target_seq_lengths = batch_up(target_seq, self.batch_size)
 
-            self.loss_weights = tf.ones([
-                batch_size,
-                tf.reduce_max(self.decoder_train_length)
-            ], dtype=tf.float32, name="loss_weights")
+        self.cursor[i] += self.batch_size
 
-
-    def _init_embeddings(self):
-        with tf.variable_scope("embedding") as scope:
-
-            # Uniform(-sqrt(3), sqrt(3)) has variance=1.
-            sqrt3 = math.sqrt(3)
-            initializer = tf.random_uniform_initializer(-sqrt3, sqrt3)
-
-            self.embedding_matrix = tf.get_variable(
-                name="embedding_matrix",
-                shape=[self.vocab_size, self.embedding_size],
-                initializer=initializer,
-                dtype=tf.float32)
-
-            self.encoder_inputs_embedded = tf.nn.embedding_lookup(
-                self.embedding_matrix, self.encoder_inputs)
-
-            self.decoder_train_inputs_embedded = tf.nn.embedding_lookup(
-                self.embedding_matrix, self.decoder_train_inputs)
-
-
-    def _make_graph(self):
-        self._init_placeholders()
-        self._init_decoder_train_connectors()
-        if self.bidirectional:
-            self._init_bidirectional_encoder()
-        else:
-            self._init_simple_encoder()
-
-        self._init_decoder()
-
-        self._init_optimizer()
-
-
-    def _init_simple_encoder(self):
-        with tf.variable_scope("Encoder") as scope:
-            (self.encoder_outputs, self.encoder_state) = (
-                tf.nn.dynamic_rnn(cell=self.encoder_cell,
-                                  inputs=self.encoder_inputs_embedded,
-                                  sequence_length=self.encoder_inputs_length,
-                                  time_major=True,
-                                  dtype=tf.float32)
-                )
-
-
-    def _init_bidirectional_encoder(self):
-        with tf.variable_scope("BidirectionalEncoder") as scope:
-
-            ((encoder_fw_outputs,
-              encoder_bw_outputs),
-             (encoder_fw_state,
-              encoder_bw_state)) = (
-                tf.nn.bidirectional_dynamic_rnn(cell_fw=self.encoder_cell,
-                                                cell_bw=self.encoder_cell,
-                                                inputs=self.encoder_inputs_embedded,
-                                                sequence_length=self.encoder_inputs_length,
-                                                time_major=True,
-                                                dtype=tf.float32)
-                )
-
-            self.encoder_outputs = tf.concat((encoder_fw_outputs, encoder_bw_outputs), 2)
-
-            if isinstance(encoder_fw_state, LSTMStateTuple):
-
-                encoder_state_c = tf.concat(
-                    (encoder_fw_state.c, encoder_bw_state.c), 1, name='bidirectional_concat_c')
-                encoder_state_h = tf.concat(
-                    (encoder_fw_state.h, encoder_bw_state.h), 1, name='bidirectional_concat_h')
-                self.encoder_state = LSTMStateTuple(c=encoder_state_c, h=encoder_state_h)
-
-            elif isinstance(encoder_fw_state, tf.Tensor):
-                self.encoder_state = tf.concat((encoder_fw_state, encoder_bw_state), 1, name='bidirectional_concat')
-
-    def _init_decoder(self):
-        with tf.variable_scope("Decoder") as scope:
-            def output_fn(outputs):
-                return tf.contrib.layers.linear(outputs, self.vocab_size, scope=scope)
-
-            if not self.attention:
-                decoder_fn_train = seq2seq.simple_decoder_fn_train(encoder_state=self.encoder_state)
-                decoder_fn_inference = seq2seq.simple_decoder_fn_inference(
-                    output_fn=output_fn,
-                    encoder_state=self.encoder_state,
-                    embeddings=self.embedding_matrix,
-                    start_of_sequence_id=self.EOS,
-                    end_of_sequence_id=self.EOS,
-                    maximum_length=tf.reduce_max(self.encoder_inputs_length) + 3,
-                    num_decoder_symbols=self.vocab_size,
-                )
-            else:
-
-                # attention_states: size [batch_size, max_time, num_units]
-                attention_states = tf.transpose(self.encoder_outputs, [1, 0, 2])
-
-                (attention_keys,
-                attention_values,
-                attention_score_fn,
-                attention_construct_fn) = seq2seq.prepare_attention(
-                    attention_states=attention_states,
-                    attention_option="bahdanau",
-                    num_units=self.decoder_hidden_units,
-                )
-
-                decoder_fn_train = seq2seq.attention_decoder_fn_train(
-                    encoder_state=self.encoder_state,
-                    attention_keys=attention_keys,
-                    attention_values=attention_values,
-                    attention_score_fn=attention_score_fn,
-                    attention_construct_fn=attention_construct_fn,
-                    name='attention_decoder'
-                )
-
-                decoder_fn_inference = seq2seq.attention_decoder_fn_inference(
-                    output_fn=output_fn,
-                    encoder_state=self.encoder_state,
-                    attention_keys=attention_keys,
-                    attention_values=attention_values,
-                    attention_score_fn=attention_score_fn,
-                    attention_construct_fn=attention_construct_fn,
-                    embeddings=self.embedding_matrix,
-                    start_of_sequence_id=self.EOS,
-                    end_of_sequence_id=self.EOS,
-                    maximum_length=tf.reduce_max(self.encoder_inputs_length) + 3,
-                    num_decoder_symbols=self.vocab_size,
-                )
-
-            (self.decoder_outputs_train,
-             self.decoder_state_train,
-             self.decoder_context_state_train) = (
-                seq2seq.dynamic_rnn_decoder(
-                    cell=self.decoder_cell,
-                    decoder_fn=decoder_fn_train,
-                    inputs=self.decoder_train_inputs_embedded,
-                    sequence_length=self.decoder_train_length,
-                    time_major=True,
-                    scope=scope,
-                )
-            )
-
-            self.decoder_logits_train = output_fn(self.decoder_outputs_train)
-            self.decoder_prediction_train = tf.argmax(self.decoder_logits_train, axis=-1, name='decoder_prediction_train')
-
-            scope.reuse_variables()
-
-            (self.decoder_logits_inference,
-             self.decoder_state_inference,
-             self.decoder_context_state_inference) = (
-                seq2seq.dynamic_rnn_decoder(
-                    cell=self.decoder_cell,
-                    decoder_fn=decoder_fn_inference,
-                    time_major=True,
-                    scope=scope,
-                )
-            )
-            self.decoder_prediction_inference = tf.argmax(self.decoder_logits_inference, axis=-1, name='decoder_prediction_inference')
-
-    def _init_optimizer(self):
-        logits = tf.transpose(self.decoder_logits_train, [1, 0, 2])
-        targets = tf.transpose(self.decoder_train_targets, [1, 0])
-        self.loss = seq2seq.sequence_loss(logits=logits, targets=targets,
-                                          weights=self.loss_weights)
-        self.train_op = tf.train.AdamOptimizer().minimize(self.loss)
-
-
-# Ath fix for Plouffe
-def train_on_plouffe_split():
-    model = Seq2SeqModel(encoder_cell = LSTMCell(10), decoder_cell=LSTMCell(20), vocab_size=10, embedding_size=10)
-
-    sample_step = 100
-    last_step = 1000
-
-    with tf.Session() as session:
-        session.run(tf.global_variables_initializer())
-        iterator = seq_utils.FibonacciSequenceIterator()
-        loss_track = []
-
-        for i in tqdm(range(last_step)):
-            inputs_, input_length, targets_, targets_length = iterator.next_batch()
-            feed_dict = {model.encoder_inputs: inputs_,
-                         model.encoder_inputs_length: input_length,
-                         model.decoder_targets: targets_,
-                         model.decoder_targets_length: targets_length,
-                        }
-            _, l = session.run([model.train_op, model.loss], feed_dict)
-            loss_track.append(l)
-
-            if i == 0 or i % sample_step == 0:
-                print('batch {}'.format(i))
-                print(' minibatch_loss: {}'.format(session.run(model.loss, feed_dict)))
-                # Transposed for batch major
-                for i, (e_in, dt_pred) in enumerate(zip(
-                        feed_dict[model.decoder_targets].T,
-                        session.run(model.decoder_prediction_train, feed_dict).T
-                    )):
-                    print('  sample {}:'.format(i + 1))
-                    print('    enc input           > {}'.format(e_in))
-                    print('    dec train predicted > {}'.format(dt_pred))
-                    if i >= 2:
-                        break
-                print()
-
-
-train_on_fibonacci_split()
+        return input_seq_time_major, input_seq_lengths, target_seq_time_major, target_seq_lengths
