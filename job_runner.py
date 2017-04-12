@@ -75,7 +75,6 @@ def train_from_config(learning_rate,
         sqsub = 'sqsub -q gpu -f mpi -n 8 --gpp 1 -r 3600 -o ' + log_dir_path
         sqsub += '/' + checkpoint_name + '%J.out --mpp=92g --nompirun '
         print(sqsub + command)
-        exit()
         subprocess.call(sqsub + command, shell=True)
 
     elif train_option == 'local':
