@@ -19,6 +19,8 @@ PAD = 0
 EOS = 1
 
 slim = tf.contrib.slim
+#TODO
+checkpoint_path = ''
 
 def random_sequence(num_dim, num_length):
     # Realize walk
@@ -420,15 +422,13 @@ def decoder_inference(decoder_cell, context_vector, encoder_state, batch_size, m
         decoder_logits_inference, decoder_state_inference, decoder_context_state_inference = decoder_inference_out
     return decoder_logits_inference
 
+
 # Setup optimizer function (returns the train_op)
 def init_optimizer(decoder_logits, decoder_targets):
-    # Question: Why transpose?
-    #logits = tf.transpose(decoder_logits_train, [1, 0, 2])
-    #targets = tf.transpose(decoder_train_targets, [1, 0])
-    # TODO verify that home-made loss function works
     loss = l2_loss(logits=decoder_logits, targets=decoder_targets)
     train_op = tf.train.AdamOptimizer().minimize(loss)
     return loss, train_op
+
 
 def l2_loss(logits, targets, name=None):
   """l2 loss for a sequence of logits (per example).
@@ -498,7 +498,7 @@ def sample_Bernoulli(p=0.5):
     return tf.greater_equal(x,tf.constant(p))
 
 
-def test_and_display(session, encoder_input_ph, decoder_predict):
+def test_and_display(session, encoder_input_ph, is_validation, decoder_predict):
     ''' This is what we want to reproduce with the network.'''
     N = 200 # Set number of nodes
     n_frames = 200
@@ -506,8 +506,9 @@ def test_and_display(session, encoder_input_ph, decoder_predict):
     G = PlouffeAnimation.PlouffeSequence(N,98,limit,n_frames) # Initialize the graph G
     anim = FuncAnimation(G.fig, G.next_frame,frames=n_frames, blit=True)
     plt.show()
-    #anim.save('PlouffeSequence200_98_102.gif', dpi=80, writer='imagemagick')
-    #feed_dict = {}
+    anim.save('PlouffeSequence200_98_102.gif', dpi=80, writer='imagemagick')
+    # TODO
+    #feed_dict = {encoder_input_ph: }
     #my_prediction = session.run(decoder_predict)
     #print(my_prediction)
 
@@ -565,7 +566,7 @@ def train_on_plouffe_copy(checkpoint_name = 'Holuhraun'):
     loss, train_op = init_optimizer(decoder_logits, decoder_target)
     # We need the values to be between 0 and 1 to be easy to parameterize with a network for regression
     decoder_prediction = decoder_logits*num_nodes
-
+    saver = tf.train.Saver(var_list=tf.global_variables())
     ########
     # Run Graph
     ########
@@ -631,11 +632,12 @@ def train_on_plouffe_copy(checkpoint_name = 'Holuhraun'):
 
             log_df = pd.DataFrame(log_dict)
             current_epoch += 1
+            saver.save(sess=session, save_path=checkpoint_path)
             ### Testing
             # Here we use the model in its current state and we try to reproduce the Plouffe Graph for an interesting
             # case.
-            if current_epoch % sample_step == 5:
-                test_and_display(session, decoder_prediction)
+            #if current_epoch % sample_step == 2:
+            #    test_and_display(session, encoder_input_ph, is_validation, decoder_prediction)
 
 
 if __name__=="__main__":

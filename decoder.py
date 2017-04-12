@@ -70,12 +70,16 @@ def regression_decoder_fn_inference(encoder_state,
             if cell_output is None:
                 # invariant that this is time == 0
                 next_input = array_ops.ones([batch_size, num_features], dtype=dtype)
+                next_input = tf.concat([next_input, context_vector], axis=1)
+                next_input = slim.fully_connected(next_input, num_features)
                 done = array_ops.zeros([batch_size], dtype=dtypes.bool)
                 cell_state = encoder_state
                 cell_output = array_ops.zeros([num_features],dtype=dtype)
             else:
                 cell_output = slim.fully_connected(cell_output, 100)
                 next_input = cell_output
+                next_input = tf.concat([next_input, context_vector], axis=1)
+                next_input = slim.fully_connected(next_input, num_features)
                 done = array_ops.zeros([batch_size], dtype=dtypes.bool)
             # next_input = next_input
             # if time > maxlen, return all true vector
