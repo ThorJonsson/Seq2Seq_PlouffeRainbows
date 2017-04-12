@@ -13,8 +13,8 @@ from decoder import simple_decoder_fn_train, regression_decoder_fn_inference, dy
 slim = tf.contrib.slim
 
 import sys
-sys.path.append("../plouffe")
-import PlouffeAnimation
+sys.path.append("../")
+import plouffe.PlouffeAnimation
 
 MAX_SEQ_LENGTH = 100
 PAD = 0
