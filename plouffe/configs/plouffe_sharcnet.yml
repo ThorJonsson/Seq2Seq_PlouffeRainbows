@@ -3,30 +3,30 @@ globalParams:
 #  createDataset: False
 #  playDataset: 10
 #  verbose: False
-  train: local
-  #modelTag: engg3130
-  #rootDir: /plouffe/
-  checkpointDir: /logs/checkpoints/
+  train: copper
+  modelTag: engg3130
+  rootDir: /plouffe
+  checkpointDir: /logs
   checkpointName: Holuhraun
 # Dataset Arguments
 datasetParams:
   syntheticDataset: plouffe
   datasetTag: plouffe-engg3130
-  ratioDataset: 10
+  #ratioDataset: 10
   datasetSize: 1000
 # Neural Network Arguments
 networkOptions:
   cellSize: 64
-  hiddenSize: 256
+  #hiddenSize: 256
 # Hyperparameters
 hyperparameters:
-  numFrames: 200
-  numNodes: 100
-  batchSize: 10
+  numFrames: [100, 150, 200]
+  numNodes: [100, 100, 200]
+  batchSize: [64, 32, 10]
   maxEpoch: 100
-#  saveEvery: 10
-#  validateEvery: 1
-#  learningRate: 0.01
-#  learningRateDecay: 1
-#  initMomentum: 0.5
-#  finalMomentum: 0.9
+  saveEvery: 10
+  validateEvery: 1
+  learningRate: [0.001, 0.01, 0.005]
+  #learningRateDecay: 1
+  #initMomentum: 0.5
+  #finalMomentum: 0.9

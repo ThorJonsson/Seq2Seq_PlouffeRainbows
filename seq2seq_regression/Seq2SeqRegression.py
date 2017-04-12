@@ -1,23 +1,26 @@
+import os
 import math
 import numpy as np
 import random
-import tensorflow as tf
-from tensorflow.contrib.rnn import LSTMCell, LSTMStateTuple, GRUCell
-from decoder import simple_decoder_fn_train, regression_decoder_fn_inference, dynamic_rnn_decoder
-import sys
-sys.path.append("../plouffe")
-import PlouffeAnimation
 import pdb
 from tqdm import trange
 import time
 import pandas as pd
+
+import tensorflow as tf
+from tensorflow.contrib.rnn import LSTMCell, LSTMStateTuple, GRUCell
+from decoder import simple_decoder_fn_train, regression_decoder_fn_inference, dynamic_rnn_decoder
+slim = tf.contrib.slim
+
+import sys
+sys.path.append("../plouffe")
+import PlouffeAnimation
+
 MAX_SEQ_LENGTH = 100
 PAD = 0
 EOS = 1
 
-slim = tf.contrib.slim
-#TODO
-checkpoint_path = ''
+#checkpoint_path = ''
 
 def make_dataset(size,max_seq_length,num_dim):
     """
@@ -222,21 +225,46 @@ def test_and_display(session, encoder_input_ph, is_validation, decoder_predict):
     #my_prediction = session.run(decoder_predict)
     #print(my_prediction)
 
-def train_on_plouffe_copy(checkpoint_name = 'Holuhraun'):
-    log_dict = {'CheckpointName': checkpoint_name,'Epoch': [], 'TrainingLoss': [], 'MeanTrainingDuration': [], 'ValidationLoss': [], 'MeanValidDuration':[]}
-    ########
-    # Set Hyperparameters
-    ########
-    num_frames = 200
-    num_nodes = 100
-    batch_size = 10
-    cell_size = 64
-    # TODO inference
-    dataset_size = 1000
-    max_num_epoch = 100
+def train_on_plouffe_copy(sess_args, load_params):
+    if load_params == 0:
+      ########
+      # Set Hyperparameters
+      ########
+      num_frames = sess_args['hyperparameters.numFrames']
+      num_nodes = sess_args['hyperparameters.numNodes']
+      batch_size = sess_args['hyperparameters.batchSize']
+      cell_size = sess_args['networkOptions.cellSize']
+      dataset_size = sess_args['datasetParams.datasetSize']
+      max_num_epoch = sess_args['hyperparameters.maxEpoch']
+
+      checkpoint_path = os.getcwd() + sess_args['globalParams.checkpointDir']
+      checkpoint_name = sess_args['globalParams.checkpointName']
+
+    else:
+      ########
+      # Set Hyperparameters
+      ########
+      num_frames = sess_args['numFrames']
+      num_nodes = sess_args['numNodes']
+      batch_size = sess_args['batchSize']
+      cell_size = sess_args['cellSize']
+      dataset_size = sess_args['datasetSize']
+      max_num_epoch = sess_args['maxEpoch']
+
+      checkpoint_path = os.getcwd() + sess_args['checkpointDir']
+      checkpoint_name = sess_args['checkpointName']
+
+    log_dict = {'CheckpointName': checkpoint_name, 'Epoch': [], 'TrainingLoss': [], 'MeanTrainingDuration': [], 'ValidationLoss': [], 'MeanValidDuration':[]}
+
+    try: 
+        os.makedirs(checkpoint_path)
+    except OSError:
+        if not os.path.isdir(checkpoint_path):
+            raise
+
     sample_step = 100
-    num_step = 100
     p = 0.5
+
     ########
     # Define the Computational Graph
     ########
