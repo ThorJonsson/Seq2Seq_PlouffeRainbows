@@ -497,7 +497,7 @@ def sample_Bernoulli(p=0.5):
     return tf.greater_equal(x,tf.constant(p))
 
 
-def test_and_display(session, encoder_input_ph, decoder_predict):
+def test_and_display(session, encoder_input_ph, is_validation, decoder_predict):
     ''' This is what we want to reproduce with the network.'''
     N = 200 # Set number of nodes
     n_frames = 200
@@ -505,8 +505,9 @@ def test_and_display(session, encoder_input_ph, decoder_predict):
     G = PlouffeAnimation.PlouffeSequence(N,98,limit,n_frames) # Initialize the graph G
     anim = FuncAnimation(G.fig, G.next_frame,frames=n_frames, blit=True)
     plt.show()
-    #anim.save('PlouffeSequence200_98_102.gif', dpi=80, writer='imagemagick')
-    #feed_dict = {}
+    anim.save('PlouffeSequence200_98_102.gif', dpi=80, writer='imagemagick')
+    # TODO
+    #feed_dict = {encoder_input_ph: }
     #my_prediction = session.run(decoder_predict)
     #print(my_prediction)
 
@@ -539,6 +540,7 @@ def train_on_plouffe_copy(checkpoint_name = 'Holuhraun'):
     encoder_output, encoder_state = init_simple_encoder(LSTMCell(cell_size),
                                                         encoder_input,
                                                         seq_length)
+    pdb.set_trace()
     context_vector = encoder_output[-1]
 
 
@@ -633,8 +635,8 @@ def train_on_plouffe_copy(checkpoint_name = 'Holuhraun'):
             ### Testing
             # Here we use the model in its current state and we try to reproduce the Plouffe Graph for an interesting
             # case.
-            if current_epoch % sample_step == 5:
-                test_and_display(session, decoder_prediction)
+            #if current_epoch % sample_step == 2:
+            #    test_and_display(session, encoder_input_ph, is_validation, decoder_prediction)
 
 
 if __name__=="__main__":
