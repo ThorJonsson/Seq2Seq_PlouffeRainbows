@@ -1,0 +1,27 @@
+trainingInput:
+  # Global Arguments
+  globalParams:
+    createDataset: False
+    playDataset: 10
+    verbose: False
+    modelTag: engg3130
+    rootDir: /plouffe/
+  # Dataset Arguments
+  datasetParams:
+    syntheticDataset: plouffe
+    datasetTag: plouffe-engg3130
+    ratioDataset: 10
+    maxLength: 10
+  # Neural Network Arguments
+  networkOptions:
+    hiddenSize: 256
+  # Hyperparameters
+  hyperparameters:
+    batchSize: 100
+    maxEpoch: 600
+    saveEvery: 10
+    validateEvery: 1
+    learningRate: 0.01
+    learningRateDecay: 1
+    initMomentum: 0.5
+    finalMomentum: 0.9
