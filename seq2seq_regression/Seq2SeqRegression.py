@@ -83,7 +83,7 @@ def decoder_teacher_forcing(decoder_cell, context_vector, encoder_state, decoder
         def output_fn(outputs):
             return slim.fully_connected(outputs, num_features, scope=scope)
 
-
+        decoder_fn_train = simple_decoder_fn_train(encoder_state, context_vector)
 
         decoder_output = dynamic_rnn_decoder(cell=decoder_cell,
                                              decoder_fn=decoder_fn_train,
