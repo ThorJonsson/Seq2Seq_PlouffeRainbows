@@ -29,23 +29,11 @@ def train_from_config(learning_rate,
         python train.py
     """
 
-    #assert len(argv) == 3, "Usage: python train.py [copper_config.json] [copper/local]"
-
-    # Get basic stuff from JSON file
-    #with open(argv[1]) as config_file:
-    #    config = json.load(config_file)
-
-    ##########
-    # Make config from json + hyperparameter search
-    ##########
     config_string = ""
 
     # reset log_dir s.t. we have one dir for each job
     log_dir_path += '/exp' + str(log_dir_num)
-    print (log_dir_path)
-
-    #for option in config:
-    #    config_string += ' --' + option + ' ' + str(train_option)
+    #print (log_dir_path)
 
     ##########
     # Set hyperparameters
@@ -75,6 +63,7 @@ def train_from_config(learning_rate,
         sqsub = 'sqsub -q gpu -f mpi -n 8 --gpp 1 -r 3600 -o ' + log_dir_path
         sqsub += '/' + checkpoint_name + '%J.out --mpp=92g --nompirun '
         print(sqsub + command)
+        exit()
         subprocess.call(sqsub + command, shell=True)
 
     elif train_option == 'local':
@@ -119,6 +108,15 @@ def train_many_jobs(sess_args):
     # Number of log directory
     log_dir_num = 1
     log_dir_path = os.getcwd() + sess_args['globalParams.checkpointDir']
+
+    ##########
+    # Check if log directory exists
+    ##########
+    if os.path.exists(log_dir_path):
+        print('Using logging directory ' + log_dir_path)
+    else:
+        print('Logging directory doesnt exist, creating ' + log_dir_path)
+        os.mkdir(log_dir_path)
 
     # Hyperparameters
     lr_bin = sess_args['hyperparameters.learningRate']
