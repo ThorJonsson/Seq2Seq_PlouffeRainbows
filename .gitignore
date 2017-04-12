@@ -2,3 +2,4 @@ notebooks/.ipynb*
 .*swp
 *.pyc
 fractal/
+.DS_Store

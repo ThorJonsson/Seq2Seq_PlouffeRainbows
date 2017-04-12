@@ -3,7 +3,7 @@ MAINTAINER vithursant
 
 RUN \
 	apt-get -qq -y update && apt-get -y install && \
-	apt-get -y install ipython ipython-notebook
+	apt-get -y install ipython ipython-notebook python-tk
 
 RUN \
 	pip install -U numpy \

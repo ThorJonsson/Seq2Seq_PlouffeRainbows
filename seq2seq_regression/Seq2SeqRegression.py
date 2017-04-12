@@ -5,20 +5,16 @@ import math
 import numpy as np
 import random
 import tensorflow as tf
-import seq2seq
 from tensorflow.contrib.rnn import LSTMCell, LSTMStateTuple, GRUCell
 from decoder import simple_decoder_fn_train, regression_decoder_fn_inference, dynamic_rnn_decoder
-import sys
 import PlouffeAnimation
 import pdb
 from tqdm import trange
 import time
-
-slim = tf.contrib.slim
 import pandas as pd
-import matplotlib.pyplot as plt
-from matplotlib import rc
-from matplotlib.animation import FuncAnimation
+MAX_SEQ_LENGTH = 100
+PAD = 0
+EOS = 1
 
 slim = tf.contrib.slim
 checkpoint_path = '../logs/test'
@@ -58,6 +54,7 @@ def preprocess(encoder_input, seq_length, batch_size, num_features):
 
     return encoder_input, encoder_input_lengths, decoder_input, decoder_target
 
+
 # Make an encoder function
 def init_simple_encoder(encoder_cell, encoder_inputs, encoder_inputs_length):
     with tf.variable_scope("Encoder") as scope:
@@ -68,55 +65,80 @@ def init_simple_encoder(encoder_cell, encoder_inputs, encoder_inputs_length):
                                                            dtype=tf.float32)
         return encoder_outputs, encoder_state
 
+
 # Make a decoder function
-def init_decoder_train(decoder_cell, decoder_targets, decoder_targets_length, encoder_state, num_features):
+def decoder_teacher_forcing(decoder_cell, context_vector, encoder_state, decoder_targets, max_sequence_length, num_features):
+    """
+    Args:
+      decoder_cell: The type of a gated RNN architecture that we use for the decoder
+      context_vector: The last output of the encoder, which we condition on to reproduce the sequence
+      encoder_state: The last hidden state of the encoder network
+      decoder_targets: For teacher forcing! The sequence of vectors that the decoder ought to produce
+      max_sequence_length: The longest sequence in the minibatch. To stop the decoder when training
+      num_features: How many features to project the output of the RNN onto
+    Returns:
+      decoder_logits: A set of logits to be passed to our objective function
+    """
     with tf.variable_scope("Decoder") as scope:
         def output_fn(outputs):
             return slim.fully_connected(outputs, num_features, scope=scope)
 
-        # TODO Comment
-        decoder_output = seq2seq.dynamic_rnn_decoder(cell=decoder_cell,
-                                                     decoder_fn=simple_decoder_fn_train(encoder_state=encoder_state),
-                                                     inputs=decoder_targets,
-                                                     sequence_length=decoder_targets_length,
-                                                     time_major=True,
-                                                     scope=scope)
+        decoder_fn_train = simple_decoder_fn_train(encoder_state, context_vector)
+
+        decoder_output = dynamic_rnn_decoder(cell=decoder_cell,
+                                             decoder_fn=decoder_fn_train,
+                                             inputs=decoder_targets,
+                                             sequence_length=max_sequence_length,
+                                             time_major=True,
+                                             scope=scope)
 
         decoder_outputs, decoder_state, decoder_context_state = decoder_output
 
         decoder_logits = output_fn(decoder_outputs)
-        return decoder_logits
+    return decoder_logits
 
 
-def init_decoder_inference(decoder_cell, encoder_state, seq_length, batch_size, num_features, output_fn):
+def decoder_inference(decoder_cell, context_vector, encoder_state, batch_size, max_sequence_length, num_features):
+    """
+    Args:
+      decoder_cell: The type of a gated RNN architecture that we use for the decoder
+      context_vector: The last output of the encoder, which we condition on to reproduce the sequence
+      encoder_state: The last hidden state of the encoder network
+      decoder_targets: For teacher forcing! The sequence of vectors that the decoder ought to produce
+      max_sequence_length: The longest sequence in the minibatch. To stop the decoder when training
+      num_features: How many features to project the output of the RNN onto
+      batch_size: Needed to make a minibatch of GO tokens for the decoder
+    Returns:
+      decoder_prediction_inference: A reproduced PlouffeGraph given by the decoder
+    """
     with tf.variable_scope("Decoder") as scope:
+        def output_fn(outputs):
+            return slim.fully_connected(outputs, num_features, scope=scope)
+
         scope.reuse_variables()
 
         decoder_fn_inference = regression_decoder_fn_inference(encoder_state,
-                                                               seq_length,
+                                                               context_vector,
+                                                               max_sequence_length,
                                                                batch_size,
                                                                num_features,
-                                                               output_fn=output_fn)
+                                                               output_fn)
 
-        decoder_inference_out = seq2seq.dynamic_rnn_decoder(cell=decoder_cell,
-                                                            decoder_fn=decoder_fn_inference,
-                                                            time_major=True,
-                                                            scope=scope)
+        decoder_inference_out = dynamic_rnn_decoder(cell=decoder_cell,
+                                                    decoder_fn=decoder_fn_inference,
+                                                    time_major=True,
+                                                    scope=scope)
 
-        decoder_logits_inference, self.decoder_state_inference, self.decoder_context_state_inference = decoder_inference_out
-        # We need the values to be between 0 and 1 to be easy to parameterize with a network for regression
-        decoder_prediction_inference = decoder_logits_inference*num_features
-    return decoder_prediction_inference
+        decoder_logits_inference, decoder_state_inference, decoder_context_state_inference = decoder_inference_out
+    return decoder_logits_inference
+
 
 # Setup optimizer function (returns the train_op)
 def init_optimizer(decoder_logits, decoder_targets):
-    # Question: Why transpose?
-    #logits = tf.transpose(decoder_logits_train, [1, 0, 2])
-    #targets = tf.transpose(decoder_train_targets, [1, 0])
-    # TODO verify that home-made loss function works
     loss = l2_loss(logits=decoder_logits, targets=decoder_targets)
     train_op = tf.train.AdamOptimizer().minimize(loss)
     return loss, train_op
+
 
 def l2_loss(logits, targets, name=None):
   """l2 loss for a sequence of logits (per example).
@@ -156,8 +178,6 @@ def l2_loss(logits, targets, name=None):
     l2loss /= total_size
   return l2loss
 
-
-# TODO 
 def run_inference():
     assert not np.isnan(batch_loss)
     # TODO inference every now and then
@@ -231,16 +251,15 @@ def train_on_plouffe_copy(checkpoint_name = 'Holuhraun'):
     ########
     # Set Hyperparameters
     ########
-    dataset_size = 1000
+    num_frames = 200
     num_nodes = 100
     batch_size = 10
     cell_size = 64
     dataset_size = 1000
     max_num_epoch = 100
     sample_step = 100
-    seq_length = 200
     num_step = 100
-    cell_size = 64
+    p = 0.5
     ########
     # Define the Computational Graph
     ########
@@ -248,13 +267,39 @@ def train_on_plouffe_copy(checkpoint_name = 'Holuhraun'):
     is_validation = tf.placeholder(tf.bool, name='is_validation')
 
     encoder_input, seq_length, decoder_input, decoder_target = preprocess(encoder_input_ph,
-                                                                          seq_length,
+                                                                          num_frames,
                                                                           batch_size,
-                                                                          num_features)
+                                                                          num_nodes)
 
-    encoder_output, encoder_state = init_simple_encoder(LSTMCell(cell_size), encoder_input, seq_length)
-    decoder_logits = init_decoder_train(LSTMCell(cell_size), decoder_target, seq_length, encoder_state, num_features)
+    encoder_output, encoder_state = init_simple_encoder(LSTMCell(cell_size),
+                                                        encoder_input,
+                                                        seq_length)
+    context_vector = encoder_output[-1]
+
+
+    decoder_logits_train = decoder_teacher_forcing(LSTMCell(cell_size),
+                                                   context_vector,
+                                                   encoder_state,
+                                                   decoder_target,
+                                                   seq_length,
+                                                   num_nodes)
+
+    decoder_logits_test = decoder_inference(LSTMCell(cell_size),
+                                            context_vector,
+                                            encoder_state,
+                                            batch_size,
+                                            num_frames,
+                                            num_nodes)
+
+
+    is_teacher_forcing = tf.logical_or(sample_Bernoulli(p), is_validation)
+
+    decoder_logits = tf.where(is_teacher_forcing, decoder_logits_train, decoder_logits_test)
+
     loss, train_op = init_optimizer(decoder_logits, decoder_target)
+    # We need the values to be between 0 and 1 to be easy to parameterize with a network for regression
+    decoder_prediction = decoder_logits*num_nodes
+    saver = tf.train.Saver(var_list=tf.global_variables())
     ########
     # Run Graph
     ########
@@ -263,20 +308,19 @@ def train_on_plouffe_copy(checkpoint_name = 'Holuhraun'):
         df = PlouffeAnimation.make_dataset(dataset_size)
         data = df['Plouffe'].tolist()
         training_data = data[:int(dataset_size*0.8)]
-        valid_data = data[int(dataset_size*0.8):int(dataset_size*0.95)]
-        test_data = data[int(dataset_size*0.95):int(dataset_size)]
+        valid_data = data[int(dataset_size*0.8):int(dataset_size)]
 
         train_iterator = PlouffeAnimation.Iterator(training_data,
                                                    num_nodes,
-                                                   seq_length,
+                                                   num_frames,
                                                    batch_size)
 
         valid_iterator = PlouffeAnimation.Iterator(valid_data,
                                                    num_nodes,
-                                                   seq_length,
+                                                   num_frames,
                                                    batch_size)
 
-        step, mean_loss = 0,0
+        train_epoch_mean_loss, valid_epoch_mean_loss, step, mean_loss = 0,0,0,0
         train_losses, valid_losses = [], []
         current_epoch = 0
         while current_epoch < max_num_epoch:
@@ -286,7 +330,7 @@ def train_on_plouffe_copy(checkpoint_name = 'Holuhraun'):
             train_epoch = trange(num_train_steps, desc='Loss', leave=True)
             ### Training
             for _ in train_epoch:
-                feed_dict = {encoder_input_ph: train_iterator.next_batch()}
+                feed_dict = {encoder_input_ph: train_iterator.next_batch(), is_validation: False}
                 start_time = time.time()
                 train_batch_loss,_ = session.run([loss, train_op], feed_dict)
                 duration = time.time() - start_time
@@ -302,15 +346,16 @@ def train_on_plouffe_copy(checkpoint_name = 'Holuhraun'):
             valid_epoch = trange(num_valid_steps, desc='Loss', leave=True)
             ### Validating
             for _ in valid_epoch:
-                feed_dict = {encoder_input_ph: valid_iterator.next_batch()}
+                feed_dict = {encoder_input_ph: valid_iterator.next_batch(), is_validation: True}
                 start_time = time.time()
                 valid_batch_loss = session.run([loss], feed_dict)
                 duration = time.time() - start_time
                 mean_valid_duration += duration
                 step_desc = ('Epoch {}: loss = {} ({:.2f} sec/step)'.format(current_epoch, valid_batch_loss, duration))
-                valid_epoch_mean_loss += valid_batch_loss
+                valid_epoch_mean_loss += valid_batch_loss[0]
                 valid_epoch.set_description(step_desc)
                 valid_epoch.refresh()
+
             ### Logging
             log_dict['Epoch'] = current_epoch
             log_dict['TrainingLoss'] = train_epoch_mean_loss/num_train_steps
@@ -323,8 +368,10 @@ def train_on_plouffe_copy(checkpoint_name = 'Holuhraun'):
             current_epoch += 1
             saver.save(sess=session, save_path=checkpoint_path)
             ### Testing
-            if current_epoch % sample_step == 0:
-                test_and_display()
+            # Here we use the model in its current state and we try to reproduce the Plouffe Graph for an interesting
+            # case.
+            #if current_epoch % sample_step == 2:
+            #    test_and_display(session, encoder_input_ph, is_validation, decoder_prediction)
 
 
 if __name__=="__main__":

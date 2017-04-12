@@ -10,7 +10,7 @@ from tensorflow.python.ops import math_ops
 from tensorflow.python.util import nest
 import tensorflow as tf
 from tensorflow.contrib import layers
-import rnn
+from tensorflow.python.ops import rnn
 from tensorflow.python.ops import tensor_array_ops
 from tensorflow.python.ops import variable_scope as vs
 import pdb
