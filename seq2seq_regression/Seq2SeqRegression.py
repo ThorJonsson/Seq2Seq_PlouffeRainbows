@@ -16,10 +16,6 @@ import sys
 sys.path.append("../")
 from plouffe import PlouffeLib
 
-MAX_SEQ_LENGTH = 100
-PAD = 0
-EOS = 1
-
 
 def make_dataset(size,max_seq_length,num_dim):
     """
@@ -39,6 +35,7 @@ def make_dataset(size,max_seq_length,num_dim):
         seqs.append(seq_i)
         seqs_lengths.append(seq_length_i)
     return seqs, seqs_lengths
+
 
 def preprocess(encoder_input, seq_length, batch_size, num_features):
     """
@@ -180,6 +177,7 @@ def l2_loss(logits, targets, name=None):
     l2loss /= total_size
   return l2loss
 
+
 def run_inference():
     assert not np.isnan(batch_loss)
     # TODO inference every now and then
@@ -199,6 +197,7 @@ def run_inference():
                 break
         print()
 
+
 def sample_Bernoulli(p=0.5):
     """
     Args:
@@ -208,21 +207,6 @@ def sample_Bernoulli(p=0.5):
     """
     x = tf.random_uniform(())
     return tf.greater_equal(x,tf.constant(p))
-
-
-#def test_and_display(session, encoder_input_ph, is_validation, decoder_predict):
-#    ''' This is what we want to reproduce with the network.'''
-#    N = 200 # Set number of nodes
-#    n_frames = 200
-#    limit = 102
-#    G = PlouffeLib.PlouffeSequence(N,98,limit,n_frames) # Initialize the graph G
-#    anim = FuncAnimation(G.fig, G.next_frame,frames=n_frames, blit=True)
-#    plt.show()
-#    anim.save('PlouffeSequence200_98_102.gif', dpi=80, writer='imagemagick')
-#    # TODO
-#    #feed_dict = {encoder_input_ph: }
-#    #my_prediction = session.run(decoder_predict)
-#    #print(my_prediction)
 
 
 def _save_df(log_df, checkpoint_path):
@@ -385,22 +369,22 @@ def train_on_plouffe_copy(sess_args, load_params):
                 valid_epoch.refresh()
 
             ### Logging
-            log_dict['Epoch'] = current_epoch
-            log_dict['TrainingLoss'] = train_epoch_mean_loss/num_train_steps
-            log_dict['MeanTrainingDuration'] = mean_train_duration/num_train_steps
-            log_dict['ValidationLoss'] = valid_epoch_mean_loss/num_valid_steps
-            log_dict['MeanValidationDuration'] = mean_valid_duration/num_valid_steps
+            # TODO find a better way to log hyperparameters
+            log_dict['num_frames'] = num_frames
+            log_dict['num_nodes'] = num_nodes
+            log_dict['batch_size'] = batch_size
+            log_dict['cell_size'] = cell_size
+            log_dict['dataset_size'] = dataset_size
+            log_dict['max_num_epoch'] = max_num_epoch
+            log_dict['checkpoint_path'] = checkpoint_path
+            log_dict['checkpoint_name'] = checkpoint_name
+            log_dict['Epoch'].append(current_epoch)
+            log_dict['TrainingLoss'].append(train_epoch_mean_loss/num_train_steps)
+            log_dict['MeanTrainingDuration'].append(mean_train_duration/num_train_steps)
+            log_dict['ValidationLoss'].append(valid_epoch_mean_loss/num_valid_steps)
+            log_dict['MeanValidationDuration'].append(mean_valid_duration/num_valid_steps)
 
             log_df = pd.DataFrame(log_dict)
             _save_df(log_df, checkpoint_path)
             current_epoch += 1
             saver.save(sess=session, save_path=checkpoint_path)
-            ### Testing
-            # Here we use the model in its current state and we try to reproduce the Plouffe Graph for an interesting
-            # case.
-            #if current_epoch % sample_step == 2:
-            #    test_and_display(session, encoder_input_ph, is_validation, decoder_prediction)
-
-
-#if __name__=="__main__":
-#    train_on_plouffe_copy()
