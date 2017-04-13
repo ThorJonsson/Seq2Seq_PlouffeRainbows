@@ -18,13 +18,13 @@ To install DLFractalSequences in an Anaconda environment:
 conda env create -f environmental.yml
 ```
 
-To activate Anaconda environment
+To activate Anaconda environment:
 
 ```python
 source activate dlfractals-env
 ```
 
-Train Seq2Seq Regression model on the local machine using the Plouffe dataset 
+Train Seq2Seq Regression model on the local machine using the Plouffe dataset:
 
 ```python
 python train.py -c configs/plouffe.yml
@@ -49,7 +49,7 @@ docker run -it dlfractals:latest python train.py -c configs/plouffe.yml
 
 ### Sharcnet: Train Multiple Jobs
 
-Activate Tensorflow Python2.7 environment
+Activate Tensorflow Python2.7 environment:
 
 ```python
 source /opt/sharcnet/testing/tensorflow/tensorflow-cp27-active
@@ -57,17 +57,17 @@ source /opt/sharcnet/testing/tensorflow/tensorflow-cp27-active
 
 Note: If there is anything missing, then do:
 
-```python
+```sh
 pip install <missing_pkg> --user
 ```
 
 Example: 
 
-```python
+```sh
 pip install /opt/sharcnet/testing/tensorflow/tensorflow-1.0.0-cp27-cp27m-linux_x86_64.whl --user
 ```
 
-Train multiple jobs using the Seq2Seq Regression model on the Plouffe dataset
+Train multiple jobs using the Seq2Seq Regression model on the Plouffe dataset:
 
 ```python
 python train_manyjobs.py -c configs/plouffe_sharcnet.yml
