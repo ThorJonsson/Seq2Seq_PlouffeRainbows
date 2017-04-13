@@ -379,22 +379,22 @@ def train_on_plouffe_copy(sess_args, load_params):
                 valid_epoch.refresh()
 
             ### Logging
-            log_dict['Epoch'] = current_epoch
-            log_dict['TrainingLoss'] = train_epoch_mean_loss/num_train_steps
-            log_dict['MeanTrainingDuration'] = mean_train_duration/num_train_steps
-            log_dict['ValidationLoss'] = valid_epoch_mean_loss/num_valid_steps
-            log_dict['MeanValidationDuration'] = mean_valid_duration/num_valid_steps
+            # TODO find a better way to log hyperparameters
+            log_dict['num_frames'] = num_frames
+            log_dict['num_nodes'] = num_nodes
+            log_dict['batch_size'] = batch_size
+            log_dict['cell_size'] = cell_size
+            log_dict['dataset_size'] = dataset_size
+            log_dict['max_num_epoch'] = max_num_epoch
+            log_dict['checkpoint_path'] = checkpoint_path
+            log_dict['checkpoint_name'] = checkpoint_name
+            log_dict['Epoch'].append(current_epoch)
+            log_dict['TrainingLoss'].append(train_epoch_mean_loss/num_train_steps)
+            log_dict['MeanTrainingDuration'].append(mean_train_duration/num_train_steps)
+            log_dict['ValidationLoss'].append(valid_epoch_mean_loss/num_valid_steps)
+            log_dict['MeanValidationDuration'].append(mean_valid_duration/num_valid_steps)
 
             log_df = pd.DataFrame(log_dict)
             _save_df(log_df, checkpoint_path+checkpoint_name + '.pcl')
             current_epoch += 1
             saver.save(sess=session, save_path=checkpoint_path+checkpoint_name)
-            ### Testing
-            # Here we use the model in its current state and we try to reproduce the Plouffe Graph for an interesting
-            # case.
-            #if current_epoch % sample_step == 2:
-            #    test_and_display(session, encoder_input_ph, is_validation, decoder_prediction)
-
-
-#if __name__=="__main__":
-#    train_on_plouffe_copy()
