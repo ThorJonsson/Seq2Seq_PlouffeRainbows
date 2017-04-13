@@ -225,7 +225,7 @@ def sample_Bernoulli(p=0.5):
 #    #print(my_prediction)
 
 
-def _save_df(log_df):
+def _save_df(log_df, checkpoint_path):
     """Saves dataframe to hdf"""
     file_name = checkpoint_path + '/' + 'holuhraun_df.pcl'
     print('Saving dataframe to', file_name)
@@ -272,12 +272,12 @@ def train_on_plouffe_copy(sess_args, load_params):
       dataset_size = sess_args['datasetSize']
       max_num_epoch = sess_args['maxEpoch']
 
-      checkpoint_path = os.getcwd() + sess_args['checkpointDir']
+      checkpoint_path = sess_args['checkpointDir']
       checkpoint_name = sess_args['checkpointName']
 
     log_dict = {'CheckpointName': checkpoint_name, 'Epoch': [], 'TrainingLoss': [], 'MeanTrainingDuration': [], 'ValidationLoss': [], 'MeanValidDuration':[]}
 
-    try: 
+    try:
         os.makedirs(checkpoint_path)
     except OSError:
         if not os.path.isdir(checkpoint_path):
@@ -390,7 +390,7 @@ def train_on_plouffe_copy(sess_args, load_params):
             log_dict['MeanValidationDuration'] = mean_valid_duration/num_valid_steps
 
             log_df = pd.DataFrame(log_dict)
-            _save_df(log_df)
+            _save_df(log_df, checkpoint_path)
             current_epoch += 1
             saver.save(sess=session, save_path=checkpoint_path)
             ### Testing
@@ -400,5 +400,5 @@ def train_on_plouffe_copy(sess_args, load_params):
             #    test_and_display(session, encoder_input_ph, is_validation, decoder_prediction)
 
 
-if __name__=="__main__":
-    train_on_plouffe_copy()
+#if __name__=="__main__":
+#    train_on_plouffe_copy()

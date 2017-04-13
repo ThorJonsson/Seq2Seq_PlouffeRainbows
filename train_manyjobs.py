@@ -7,7 +7,9 @@ import json
 import random
 import numpy as np
 import pdb
-sys.path.append('/work/thor/DLFractalSequences')
+
+from seq2seq_regression.Seq2SeqRegression import train_on_plouffe_copy
+from utils.config_utils import Config, flat_dict, flat_dict_helper
 
 def train_from_config(learning_rate,
                       batch_size,
@@ -157,6 +159,10 @@ def train_many_jobs(sess_args):
                                   sys.argv)
                 log_dir_num += 1
 
-if __name__ == "__main__":
-    train_many_jobs()
+if __name__=="__main__":
+    config_path = os.getcwd()
+    config = Config(config_path)
+    yml_args = config.config_parse_yaml()
+    sess_args = flat_dict(yml_args)
 
+    train_many_jobs(sess_args)

@@ -1,6 +1,4 @@
 import os
-import sys
-sys.path.append("../")
 
 from seq2seq_regression.Seq2SeqRegression import train_on_plouffe_copy
 from utils.config_utils import Config, flat_dict, flat_dict_helper
