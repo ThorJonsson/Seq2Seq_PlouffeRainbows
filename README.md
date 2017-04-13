@@ -1,6 +1,6 @@
 # DLFractalSequences
 
-This is a general purpose Sequence-to-Sequence Regression model which can predict a multidimensional vector sequence based on previous observations. The system of study being analyzed here is the Plouffe Graph, a graph of the Bernoulli Numbers by French mathematician Simon Plouffe. More information about the Plouffe Graph can be found here: [Times Tables, Mandelbrot and the Heart of Mathematics](https://www.youtube.com/watch?v=qhbuKbxJsk8)
+This is a general purpose Sequence-to-Sequence Regression model which can predict a multidimensional vector sequence based on previous observations. The system of study being analyzed here is the Plouffe Graph, a graph of the Bernoulli Numbers by French mathematician Simon Plouffe. More information about the Plouffe Graph can be found here: [Times Tables, Mandelbrot and the Heart of Mathematics](https://www.youtube.com/watch?v=qhbuKbxJsk8).
 
 ## Table of Contents
 
@@ -34,8 +34,7 @@ Note: The training inputs (i.e. dataset parameters, hyperparameters etc.) for tr
 
 ### Docker Installation
 
-Prerequisites:
-Docker installed on your machine. If you don't have docker installed already, then go here to [Docker Setup](https://docs.docker.com/engine/getstarted/step_one/)
+**Prerequisites: Docker installed on your machine. If you don't have docker installed already, then go here to [Docker Setup](https://docs.docker.com/engine/getstarted/step_one/)**
 
 To build Docker image:
 
@@ -74,3 +73,5 @@ python train_manyjobs.py -c configs/plouffe_sharcnet.yml
 ```
 
 Note: The training inputs (i.e. dataset parameters, hyperparameters etc.) for training on a `sharcnet` machine can be modified in the `plouffe.yml` inside the `configs` folder. You must specify `train` option inside the YAML config file to be either `copper` or `local` when training on sharcnet.
+
+* * * 
