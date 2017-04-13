@@ -24,6 +24,7 @@ hyperparameters:
   numNodes: 100
   batchSize: 10
   maxEpoch: 100
+  teacherForcingProb: 0.5
 #  saveEvery: 10
 #  validateEvery: 1
 #  learningRate: 0.01
