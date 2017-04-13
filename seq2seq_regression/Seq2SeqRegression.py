@@ -13,8 +13,8 @@ from decoder import simple_decoder_fn_train, regression_decoder_fn_inference, dy
 slim = tf.contrib.slim
 
 import sys
-sys.path.append("../plouffe")
-import PlouffeLib
+sys.path.append("../")
+from plouffe import PlouffeLib
 
 MAX_SEQ_LENGTH = 100
 PAD = 0
@@ -215,7 +215,7 @@ def sample_Bernoulli(p):
 #    N = 200 # Set number of nodes
 #    n_frames = 200
 #    limit = 102
-#    G = PlouffeAnimation.PlouffeSequence(N,98,limit,n_frames) # Initialize the graph G
+#    G = PlouffeLib.PlouffeSequence(N,98,limit,n_frames) # Initialize the graph G
 #    anim = FuncAnimation(G.fig, G.next_frame,frames=n_frames, blit=True)
 #    plt.show()
 #    anim.save('PlouffeSequence200_98_102.gif', dpi=80, writer='imagemagick')
@@ -333,17 +333,17 @@ def train_on_plouffe_copy(sess_args, load_params):
     ########
     with tf.Session() as session:
         session.run(tf.global_variables_initializer())
-        df = PlouffeAnimation.make_dataset(dataset_size)
+        df = PlouffeLib.make_dataset(dataset_size)
         data = df['Plouffe'].tolist()
         training_data = data[:int(dataset_size*0.8)]
         valid_data = data[int(dataset_size*0.8):int(dataset_size)]
 
-        train_iterator = PlouffeAnimation.Iterator(training_data,
+        train_iterator = PlouffeLib.Iterator(training_data,
                                                    num_nodes,
                                                    num_frames,
                                                    batch_size)
 
-        valid_iterator = PlouffeAnimation.Iterator(valid_data,
+        valid_iterator = PlouffeLib.Iterator(valid_data,
                                                    num_nodes,
                                                    num_frames,
                                                    batch_size)
