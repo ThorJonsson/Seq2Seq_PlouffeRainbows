@@ -14,7 +14,7 @@ slim = tf.contrib.slim
 
 import sys
 sys.path.append("../plouffe")
-import PlouffeAnimation
+import PlouffeLib
 
 MAX_SEQ_LENGTH = 100
 PAD = 0
@@ -232,9 +232,8 @@ def _save_df(log_df):
     log_df.to_pickle(file_name)
 
 
-def _restore_checkpoint_variables(session,
-                                  global_step,
-                                  checkpoint_path):
+def restore_checkpoint_variables(session,
+                                 checkpoint_path):
     """Initializes the model in the graph of a passed session with the
     variables in the file found in `checkpoint_path`, except those excluded by
     `checkpoint_exclude_scopes`.
@@ -243,7 +242,6 @@ def _restore_checkpoint_variables(session,
         return
     else:
         variables_to_restore = tf.global_variables()
-        variables_to_restore.append(global_step)
         restorer = tf.train.Saver(var_list=variables_to_restore)
         restorer.restore(sess=session, save_path=checkpoint_path)
 

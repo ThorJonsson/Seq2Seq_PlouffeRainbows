@@ -42,61 +42,61 @@ def simple_decoder_fn_train(encoder_state, context_vector, name=None):
             else: #TODO consider concatenating the cell_output with the context_vector
                 return (None, cell_state, cell_input, cell_output, context_state)
 
-    return decoder_fn
+      return decoder_fn
 
 
-def regression_decoder_fn_inference(encoder_state,
-                                    context_vector,
-                                    max_sequence_length,
-                                    batch_size,
-                                    num_features,
-                                    output_fn=None,
-                                    dtype=dtypes.float32,
-                                    name=None):
-    """ Same function as simple_decoder_fn_inference but for regression on sequences with a fixed length
-    """
-    with ops.name_scope(name, "simple_decoder_fn_inference", [output_fn, encoder_state, context_vector, max_sequence_length, batch_size, num_features, dtype]):
-        max_sequence_length = ops.convert_to_tensor(max_sequence_length, dtypes.int32)
-        if output_fn is None:
-            output_fn = lambda x: x
-    def decoder_fn(time, cell_state, cell_input, cell_output, context_state, context_vector=context_vector):
-        """
-        Again same as in simple_decoder_fn_inference but for regression on sequences with a fixed length
-        """
-        with ops.name_scope(name, "simple_decoder_fn_inference", [time, cell_state, cell_input, cell_output,
-                                                                  context_state, context_vector]):
-            if cell_input is not None:
-                raise ValueError("Expected cell_input to be None, but saw: %s" % cell_input)
-            if cell_output is None:
-                # invariant that this is time == 0
-                next_input = array_ops.ones([batch_size, num_features], dtype=dtype)
-                next_input = tf.concat([next_input, context_vector], axis=1)
-                next_input = slim.fully_connected(next_input, num_features)
-                done = array_ops.zeros([batch_size], dtype=dtypes.bool)
-                cell_state = encoder_state
-                cell_output = array_ops.zeros([num_features],dtype=dtype)
-            else:
-                cell_output = slim.fully_connected(cell_output, 100)
-                next_input = cell_output
-                next_input = tf.concat([next_input, context_vector], axis=1)
-                next_input = slim.fully_connected(next_input, num_features)
-                done = array_ops.zeros([batch_size], dtype=dtypes.bool)
-            # next_input = next_input
-            # if time > maxlen, return all true vector
-            done = control_flow_ops.cond(math_ops.greater(time, max_sequence_length-1),
-                                         lambda: array_ops.ones([batch_size,], dtype=dtypes.bool),
-                                         lambda: done)
-            return (done, cell_state, next_input, cell_output, context_state)
-    return decoder_fn
+  def regression_decoder_fn_inference(encoder_state,
+                                      context_vector,
+                                      max_sequence_length,
+                                      batch_size,
+                                      num_features,
+                                      output_fn=None,
+                                      dtype=dtypes.float32,
+                                      name=None):
+      """ Same function as simple_decoder_fn_inference but for regression on sequences with a fixed length
+      """
+      with ops.name_scope(name, "simple_decoder_fn_inference", [output_fn, encoder_state, context_vector, max_sequence_length, batch_size, num_features, dtype]):
+          max_sequence_length = ops.convert_to_tensor(max_sequence_length, dtypes.int32)
+          if output_fn is None:
+              output_fn = lambda x: x
+      def decoder_fn(time, cell_state, cell_input, cell_output, context_state, context_vector=context_vector):
+          """
+          Again same as in simple_decoder_fn_inference but for regression on sequences with a fixed length
+          """
+          with ops.name_scope(name, "simple_decoder_fn_inference", [time, cell_state, cell_input, cell_output,
+                                                                    context_state, context_vector]):
+              if cell_input is not None:
+                  raise ValueError("Expected cell_input to be None, but saw: %s" % cell_input)
+              if cell_output is None:
+                  # invariant that this is time == 0
+                  next_input = array_ops.ones([batch_size, num_features], dtype=dtype)
+                  next_input = tf.concat([next_input, context_vector], axis=1)
+                  next_input = slim.fully_connected(next_input, num_features)
+                  done = array_ops.zeros([batch_size], dtype=dtypes.bool)
+                  cell_state = encoder_state
+                  cell_output = array_ops.zeros([num_features],dtype=dtype)
+              else:
+                  cell_output = slim.fully_connected(cell_output, num_features)
+                  next_input = cell_output
+                  next_input = tf.concat([next_input, context_vector], axis=1)
+                  next_input = slim.fully_connected(next_input, num_features)
+                  done = array_ops.zeros([batch_size], dtype=dtypes.bool)
+              # next_input = next_input
+              # if time > maxlen, return all true vector
+              done = control_flow_ops.cond(math_ops.greater(time, max_sequence_length-1),
+                                           lambda: array_ops.ones([batch_size,], dtype=dtypes.bool),
+                                           lambda: done)
+              return (done, cell_state, next_input, cell_output, context_state)
+      return decoder_fn
 
 
-def dynamic_rnn_decoder(cell, decoder_fn, inputs=None, sequence_length=None,
-                        parallel_iterations=None, swap_memory=False,
-                        time_major=False, scope=None, name=None):
-    with ops.name_scope(name, "dynamic_rnn_decoder", [cell, decoder_fn, inputs, sequence_length,
-                                              parallel_iterations, swap_memory, time_major, scope]):
-        '''
-        All this code is doing is making sure inputs are setup correctly
+  def dynamic_rnn_decoder(cell, decoder_fn, inputs=None, sequence_length=None,
+                          parallel_iterations=None, swap_memory=False,
+                          time_major=False, scope=None, name=None):
+      with ops.name_scope(name, "dynamic_rnn_decoder", [cell, decoder_fn, inputs, sequence_length,
+                                                parallel_iterations, swap_memory, time_major, scope]):
+          '''
+          All this code is doing is making sure inputs are setup correctly
         '''
         if inputs is not None:
             inputs = ops.convert_to_tensor(inputs)

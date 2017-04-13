@@ -36,12 +36,12 @@ class PlouffeGraph(object):
         '''
         self.graph = nx.Graph(data = self.data)
 
-    def DrawGraph(self):
-        plt.cla() # Clear figure
+    def draw(self):
         plt.figure(figsize=(8,8))
         nx.draw_circular(self.graph,node_size=10, alpha=0.7,with_labels = False)
         plt.axis('equal')
         plt.show()
+        plt.clf()
 
 
 class PlouffeSequence(object):
