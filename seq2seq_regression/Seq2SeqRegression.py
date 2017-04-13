@@ -327,8 +327,8 @@ def train_on_plouffe_copy(sess_args, load_params):
     ########
     with tf.Session() as session:
         session.run(tf.global_variables_initializer())
-        df = PlouffeLib.make_dataset(dataset_size, num_nodes, num_frames)
-        data = df['Plouffe'].tolist()
+        train_df, test_df = PlouffeLib.make_dataset(dataset_size, num_nodes, num_frames)
+        data = train_df['Plouffe'].tolist()
         training_data = data[:int(dataset_size*0.8)]
         valid_data = data[int(dataset_size*0.8):int(dataset_size)]
 
