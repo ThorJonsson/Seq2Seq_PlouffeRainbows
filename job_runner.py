@@ -7,6 +7,7 @@ import json
 import random
 import numpy as np
 import pdb
+sys.path.append('/work/thor/DLFractalSequences')
 
 def train_from_config(learning_rate,
                       batch_size,
@@ -39,14 +40,14 @@ def train_from_config(learning_rate,
     # Set hyperparameters
     ##########
     config_string += ' --' + 'learningRate' + ' ' + str(learning_rate)
-    config_string += ' --' + 'batch_size' + ' ' + str(batch_size)
-    config_string += ' --' + 'num_nodes' + ' ' + str(num_nodes)
-    config_string += ' --' + 'checkpoint_name' + ' ' + checkpoint_name
+    config_string += ' --' + 'batchSize' + ' ' + str(batch_size)
+    config_string += ' --' + 'numNodes' + ' ' + str(num_nodes)
+    config_string += ' --' + 'checkpointName' + ' ' + checkpoint_name
 
     #print(config_string)
     #print(log_dir_name)
 
-    command = 'python -m train.py' + config_string
+    command = 'python -m train' + config_string
     #print(command)
 
     ##########
@@ -107,7 +108,7 @@ def train_many_jobs(sess_args):
 
     # Number of log directory
     log_dir_num = 1
-    log_dir_path = '/work/thor/DLFractalSequences/plouffe' + sess_args['globalParams.checkpointDir']
+    log_dir_path = '/work/thor/DLFractalSequences' + sess_args['globalParams.checkpointDir']
 
     ##########
     # Check if log directory exists
