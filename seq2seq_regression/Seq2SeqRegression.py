@@ -14,7 +14,7 @@ slim = tf.contrib.slim
 
 import sys
 sys.path.append("../")
-import plouffe.PlouffeAnimation
+from plouffe import PlouffeAnimation
 
 MAX_SEQ_LENGTH = 100
 PAD = 0
