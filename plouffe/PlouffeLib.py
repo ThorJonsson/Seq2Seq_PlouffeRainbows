@@ -123,10 +123,15 @@ def get_plouffe_seq(init, num_nodes, num_frames):
 
 
 def make_dataset(_size, num_nodes, num_frames, max_int = 5000):
+    print('Constructing the Plouffe dataset')
     x = np.random.randint(max_int, size=_size)
     df = pd.DataFrame(x)
     df['Plouffe'] = df[0].apply(get_plouffe_seq, args=(num_nodes, num_frames))
-    return df
+    # We've empircally found out that 98-102 are interesting values for num_nodes=200
+    # For the time being we restrict our test set for all hyperparameters to sequences that do not lie in this range
+    mask1 = df[0]%num_nodes < 95%num_nodes
+    mask2 = df[0]%num_nodes > 105%num_nodes
+    return df[mask1 | mask2].reset_index()
 
 
 def batch_up(inputs, batch_size, num_nodes, num_frames=200):
