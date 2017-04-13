@@ -5,7 +5,6 @@ from utils.config_utils import Config, flat_dict, flat_dict_helper
 
 if __name__=="__main__":
     config_path = os.getcwd()
-    print(config_path)
     config = Config(config_path)
 
     cmd_args = config.config_init_parser()

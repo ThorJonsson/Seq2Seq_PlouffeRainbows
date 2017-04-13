@@ -274,7 +274,7 @@ def train_on_plouffe_copy(sess_args, load_params):
       dataset_size = sess_args['datasetSize']
       max_num_epoch = sess_args['maxEpoch']
 
-      checkpoint_path = os.getcwd() + sess_args['checkpointDir']
+      checkpoint_path = sess_args['checkpointDir']
       checkpoint_name = sess_args['checkpointName']
 
     log_dict = {'CheckpointName': checkpoint_name, 'Epoch': [], 'TrainingLoss': [], 'MeanTrainingDuration': [], 'ValidationLoss': [], 'MeanValidDuration':[]}
@@ -402,5 +402,5 @@ def train_on_plouffe_copy(sess_args, load_params):
             #    test_and_display(session, encoder_input_ph, is_validation, decoder_prediction)
 
 
-if __name__=="__main__":
-    train_on_plouffe_copy()
+#if __name__=="__main__":
+#    train_on_plouffe_copy()

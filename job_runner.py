@@ -42,9 +42,10 @@ def train_from_config(learning_rate,
     config_string += ' --' + 'learningRate' + ' ' + str(learning_rate)
     config_string += ' --' + 'batchSize' + ' ' + str(batch_size)
     config_string += ' --' + 'numNodes' + ' ' + str(num_nodes)
-    config_string += ' --' + 'checkpointName' + ' ' + checkpoint_name
+    config_string += ' --' + 'checkpointName' + ' ' + str(checkpoint_name)
+    config_string += ' --' + 'checkpointDir' + ' ' + str(log_dir_path)
 
-    #print(config_string)
+    print(config_string)
     #print(log_dir_name)
 
     command = 'python -m train' + config_string
@@ -109,6 +110,7 @@ def train_many_jobs(sess_args):
     # Number of log directory
     log_dir_num = 1
     log_dir_path = '/work/thor/DLFractalSequences' + sess_args['globalParams.checkpointDir']
+    #log_dir_path = os.getcwd() + sess_args['globalParams.checkpointDir']
 
     ##########
     # Check if log directory exists
@@ -144,6 +146,7 @@ def train_many_jobs(sess_args):
                 print('batch size:', batch_size)
                 print('num_nodes:', num_nodes)
                 checkpoint_name = name_list[log_dir_num]+str(np.random.randint(0,1000))
+                print(checkpoint_name)
                 train_from_config(lr,
                                   batch_size,
                                   num_nodes,
