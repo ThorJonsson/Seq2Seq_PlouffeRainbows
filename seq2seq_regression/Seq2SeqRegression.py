@@ -327,7 +327,7 @@ def train_on_plouffe_copy(sess_args, load_params):
     ########
     with tf.Session() as session:
         session.run(tf.global_variables_initializer())
-        train_df, test_df = PlouffeLib.make_dataset(dataset_size, num_nodes, num_frames)
+        train_df = PlouffeLib.make_dataset(dataset_size, num_nodes, num_frames)
         data = train_df['Plouffe'].tolist()
         training_data = data[:int(dataset_size*0.8)]
         valid_data = data[int(dataset_size*0.8):int(dataset_size)]
@@ -392,7 +392,7 @@ def train_on_plouffe_copy(sess_args, load_params):
             log_dict['TrainingLoss'].append(train_epoch_mean_loss/num_train_steps)
             log_dict['MeanTrainingDuration'].append(mean_train_duration/num_train_steps)
             log_dict['ValidationLoss'].append(valid_epoch_mean_loss/num_valid_steps)
-            log_dict['MeanValidationDuration'].append(mean_valid_duration/num_valid_steps)
+            log_dict['MeanValidDuration'].append(mean_valid_duration/num_valid_steps)
 
             log_df = pd.DataFrame(log_dict)
             _save_df(log_df, checkpoint_path+checkpoint_name + '.pcl')
