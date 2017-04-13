@@ -12,18 +12,19 @@ globalParams:
 datasetParams:
   syntheticDataset: plouffe
   datasetTag: plouffe-engg3130
-  ratioDataset: 10
+  ratioDataset: 20
   datasetSize: 1000
 # Neural Network Arguments
 networkOptions:
-  cellSize: 64
+  cellSize: 128
   hiddenSize: 256
 # Hyperparameters
 hyperparameters:
   numFrames: 200
-  numNodes: 100
+  numNodes: 40
   batchSize: 10
-  maxEpoch: 100
+  maxEpoch: 40
+  teacherForcingProb: 0.5
 #  saveEvery: 10
 #  validateEvery: 1
 #  learningRate: 0.01

@@ -22,26 +22,25 @@ import pandas as pd
 import random
 import pdb
 
-
 class PlouffeGraph(object):
 
     def __init__(self,N, k):
         self.N = N
         self.k = k
         # This list represents the Plouffe Graph for exponent k
-        self.data = [(i, int(i*k)%N) for i in range(N)]
+        self.data = [(i, int(i*k%N)) for i in range(N)]
         '''
         We could also solve this by using class inheritance
         but this will do for now as a placeholder for our nx.Graph object - but is class inheritance evil?
         '''
         self.graph = nx.Graph(data = self.data)
 
-    def DrawGraph(self):
-        plt.cla() # Clear figure
+    def draw(self):
         plt.figure(figsize=(8,8))
         nx.draw_circular(self.graph,node_size=10, alpha=0.7,with_labels = False)
         plt.axis('equal')
         plt.show()
+        plt.clf()
 
 
 class PlouffeSequence(object):
@@ -56,7 +55,7 @@ class PlouffeSequence(object):
 
     def _update_graph(self):
         self.plouffe.graph.remove_edges_from(self.plouffe.data)
-        self.plouffe.data = [(i, int(i*self.cursor)%self.n_nodes) for i in range(self.n_nodes)]
+        self.plouffe.data = [(i, int(i*self.cursor%self.n_nodes)) for i in range(self.n_nodes)]
         self.plouffe.graph.add_edges_from(self.plouffe.data)
 
     def add2graph(list_of_tuples):
@@ -77,19 +76,56 @@ class PlouffeSequence(object):
         edges = nx.draw_networkx_edges(self.plouffe.graph,pos=self.pos)
         return nodes, edges
 
+
+class ReconPlouffeViewer(object):
+
+    def __init__(self, PlouffeReconstruction, seq_length, num_nodes):
+        '''
+        This class is used to generate animations of reconstructions of the plouffe sequence
+        Args:
+          PlouffeReconstruction: A seq_length x num_nodes numpy array
+        '''
+        self.data = np.reshape(PlouffeReconstruction, [seq_length, num_nodes]).tolist()
+        self.seq_length = seq_length
+        self.num_nodes = num_nodes
+        self.cursor = 0
+        self._init_graph()
+
+    def _init_graph(self):
+        self.curr_graph = [(i, int(self.data[self.cursor][i]%self.num_nodes)) for i in range(self.num_nodes-1)]
+        self.graph = nx.Graph(data = self.curr_graph)
+        self.pos = nx.circular_layout(self.graph) # Set position of nodes in G
+        self.fig = plt.figure(figsize=(8,8))
+
+    def _update_graph(self):
+        self.graph.remove_edges_from(self.curr_graph)
+        self.curr_graph = [(i, int(self.data[self.cursor][i]%self.num_nodes)) for i in range(self.num_nodes-1)]
+        self.graph.add_edges_from(self.curr_graph)
+
+    def next_frame(self,step):
+        self.fig.clf()
+        self.cursor += 1
+        # update graph - remove existing edges and generate edges from the new cursor value
+        self._update_graph()
+        # generate new drawing elements for animation
+        nodes = nx.draw_networkx_nodes(self.graph,pos=self.pos,node_size=10,node_label=False)
+        edges = nx.draw_networkx_edges(self.graph,pos=self.pos)
+        return nodes, edges
+
+
 # TODO n_frames make consistent
-def get_plouffe_seq(init, num_nodes = 100, n_frames=200):
+def get_plouffe_seq(init, num_nodes, num_frames):
     limit = init+10
     # Really simple if you think about what the Plouffe Sequence actually is (and you like list comprehension in list
     # comprehension
-    Plouffe_Seq = [[int(i*j)%num_nodes for i in range(num_nodes)] for j in np.arange(init,limit, (limit-init)/float(n_frames))]
+    Plouffe_Seq = [[(i*j)%num_nodes for i in range(num_nodes)] for j in np.arange(init,limit, (limit-init)/float(num_frames))]
     return Plouffe_Seq
 
 
-def make_dataset(_size, max_int = 50):
+def make_dataset(_size, num_nodes, num_frames, max_int = 5000):
     x = np.random.randint(max_int, size=_size)
     df = pd.DataFrame(x)
-    df['Plouffe'] = df[0].apply(get_plouffe_seq)
+    df['Plouffe'] = df[0].apply(get_plouffe_seq, args=(num_nodes, num_frames))
     return df
 
 

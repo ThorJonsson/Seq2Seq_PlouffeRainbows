@@ -76,7 +76,7 @@ def regression_decoder_fn_inference(encoder_state,
                 cell_state = encoder_state
                 cell_output = array_ops.zeros([num_features],dtype=dtype)
             else:
-                cell_output = slim.fully_connected(cell_output, 100)
+                cell_output = slim.fully_connected(cell_output, num_features)
                 next_input = cell_output
                 next_input = tf.concat([next_input, context_vector], axis=1)
                 next_input = slim.fully_connected(next_input, num_features)
