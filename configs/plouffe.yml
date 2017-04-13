@@ -13,7 +13,7 @@ datasetParams:
   syntheticDataset: plouffe
   datasetTag: plouffe-engg3130
   ratioDataset: 20
-  datasetSize: 10000
+  datasetSize: 1000
 # Neural Network Arguments
 networkOptions:
   cellSize: 128
