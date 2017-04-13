@@ -199,7 +199,7 @@ def run_inference():
                 break
         print()
 
-def sample_Bernoulli(p=0.5):
+def sample_Bernoulli(p):
     """
     Args:
       p: a float32 between 0 and 1 indicating the threshold
@@ -259,6 +259,7 @@ def train_on_plouffe_copy(sess_args, load_params):
       cell_size = sess_args['networkOptions.cellSize']
       dataset_size = sess_args['datasetParams.datasetSize']
       max_num_epoch = sess_args['hyperparameters.maxEpoch']
+      teacher_forcing_prob = sess_args['hyperparameters.teacherForcingProb']
 
       checkpoint_path = os.getcwd() + sess_args['globalParams.checkpointDir']
       checkpoint_name = sess_args['globalParams.checkpointName']
@@ -273,6 +274,7 @@ def train_on_plouffe_copy(sess_args, load_params):
       cell_size = sess_args['cellSize']
       dataset_size = sess_args['datasetSize']
       max_num_epoch = sess_args['maxEpoch']
+      teacher_forcing_prob = sess_args['teacherForcingProb']
 
       checkpoint_path = sess_args['checkpointDir']
       checkpoint_name = sess_args['checkpointName']
@@ -320,7 +322,7 @@ def train_on_plouffe_copy(sess_args, load_params):
                                             num_nodes)
 
 
-    is_teacher_forcing = tf.logical_or(sample_Bernoulli(p), is_validation)
+    is_teacher_forcing = tf.logical_or(sample_Bernoulli(teacher_forcing_prob), is_validation)
 
     decoder_logits = tf.where(is_teacher_forcing, decoder_logits_train, decoder_logits_test)
 
