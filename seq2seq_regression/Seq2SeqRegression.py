@@ -14,11 +14,7 @@ slim = tf.contrib.slim
 
 import sys
 sys.path.append("../")
-import plouffe.PlouffeAnimation
-
-MAX_SEQ_LENGTH = 100
-PAD = 0
-EOS = 1
+from plouffe import PlouffeLib
 
 
 def make_dataset(size,max_seq_length,num_dim):
@@ -39,6 +35,7 @@ def make_dataset(size,max_seq_length,num_dim):
         seqs.append(seq_i)
         seqs_lengths.append(seq_length_i)
     return seqs, seqs_lengths
+
 
 def preprocess(encoder_input, seq_length, batch_size, num_features):
     """
@@ -136,9 +133,9 @@ def decoder_inference(decoder_cell, context_vector, encoder_state, batch_size, m
 
 
 # Setup optimizer function (returns the train_op)
-def init_optimizer(decoder_logits, decoder_targets):
+def init_optimizer(decoder_logits, decoder_targets, lr):
     loss = l2_loss(logits=decoder_logits, targets=decoder_targets)
-    train_op = tf.train.AdamOptimizer().minimize(loss)
+    train_op = tf.train.AdamOptimizer(learning_rate=lr).minimize(loss)
     return loss, train_op
 
 
@@ -180,6 +177,7 @@ def l2_loss(logits, targets, name=None):
     l2loss /= total_size
   return l2loss
 
+
 def run_inference():
     assert not np.isnan(batch_loss)
     # TODO inference every now and then
@@ -199,6 +197,7 @@ def run_inference():
                 break
         print()
 
+
 def sample_Bernoulli(p):
     """
     Args:
@@ -210,31 +209,26 @@ def sample_Bernoulli(p):
     return tf.greater_equal(x,tf.constant(p))
 
 
-#def test_and_display(session, encoder_input_ph, is_validation, decoder_predict):
-#    ''' This is what we want to reproduce with the network.'''
-#    N = 200 # Set number of nodes
-#    n_frames = 200
-#    limit = 102
-#    G = PlouffeAnimation.PlouffeSequence(N,98,limit,n_frames) # Initialize the graph G
-#    anim = FuncAnimation(G.fig, G.next_frame,frames=n_frames, blit=True)
-#    plt.show()
-#    anim.save('PlouffeSequence200_98_102.gif', dpi=80, writer='imagemagick')
-#    # TODO
-#    #feed_dict = {encoder_input_ph: }
-#    #my_prediction = session.run(decoder_predict)
-#    #print(my_prediction)
+def get_Plouffe_reconstruction(decoder_logits, seq_length, num_nodes):
+    """
+    Args:
+      decoder_logits: The logits that need to be reversed and decompressed into a Plouffe sequence
+    Returns:
+      A Plouffe Sequence as a batch_size x seq_length x num_nodes tensor
+    """
+    # 0 is the sequence axis and 1 is the batch axis
+    reversed_logits = tf.reverse_sequence(decoder_logits, seq_length, 0, 1)
+    # Batch major
+    return tf.transpose(reversed_logits, [1,0,2])*num_nodes
 
 
-def _save_df(log_df, checkpoint_path):
+def _save_df(log_df, file_name):
     """Saves dataframe to hdf"""
-    file_name = checkpoint_path + '/' + 'holuhraun_df.pcl'
     print('Saving dataframe to', file_name)
     log_df.to_pickle(file_name)
 
 
-def _restore_checkpoint_variables(session,
-                                  global_step,
-                                  checkpoint_path):
+def restore_checkpoint_variables(session, checkpoint_path):
     """Initializes the model in the graph of a passed session with the
     variables in the file found in `checkpoint_path`, except those excluded by
     `checkpoint_exclude_scopes`.
@@ -243,7 +237,6 @@ def _restore_checkpoint_variables(session,
         return
     else:
         variables_to_restore = tf.global_variables()
-        variables_to_restore.append(global_step)
         restorer = tf.train.Saver(var_list=variables_to_restore)
         restorer.restore(sess=session, save_path=checkpoint_path)
 
@@ -260,7 +253,7 @@ def train_on_plouffe_copy(sess_args, load_params):
       dataset_size = sess_args['datasetParams.datasetSize']
       max_num_epoch = sess_args['hyperparameters.maxEpoch']
       teacher_forcing_prob = sess_args['hyperparameters.teacherForcingProb']
-
+      learning_rate = sess_args['hyperparameters.learningRate']
       checkpoint_path = os.getcwd() + sess_args['globalParams.checkpointDir']
       checkpoint_name = sess_args['globalParams.checkpointName']
 
@@ -270,12 +263,13 @@ def train_on_plouffe_copy(sess_args, load_params):
       ########
       num_frames = sess_args['numFrames']
       num_nodes = sess_args['numNodes']
+      #print(num_nodes)
       batch_size = sess_args['batchSize']
       cell_size = sess_args['cellSize']
       dataset_size = sess_args['datasetSize']
       max_num_epoch = sess_args['maxEpoch']
       teacher_forcing_prob = sess_args['teacherForcingProb']
-
+      learning_rate = sess_args['learningRate']
       checkpoint_path = sess_args['checkpointDir']
       checkpoint_name = sess_args['checkpointName']
 
@@ -306,7 +300,6 @@ def train_on_plouffe_copy(sess_args, load_params):
                                                         seq_length)
     context_vector = encoder_output[-1]
 
-
     decoder_logits_train = decoder_teacher_forcing(LSTMCell(cell_size),
                                                    context_vector,
                                                    encoder_state,
@@ -314,41 +307,41 @@ def train_on_plouffe_copy(sess_args, load_params):
                                                    seq_length,
                                                    num_nodes)
 
-    decoder_logits_test = decoder_inference(LSTMCell(cell_size),
-                                            context_vector,
-                                            encoder_state,
-                                            batch_size,
-                                            num_frames,
-                                            num_nodes)
-
+    decoder_logits_valid = decoder_inference(LSTMCell(cell_size),
+                                             context_vector,
+                                             encoder_state,
+                                             batch_size,
+                                             num_frames,
+                                             num_nodes)
 
     is_teacher_forcing = tf.logical_or(sample_Bernoulli(teacher_forcing_prob), is_validation)
 
-    decoder_logits = tf.where(is_teacher_forcing, decoder_logits_train, decoder_logits_test)
+    decoder_logits = tf.where(is_teacher_forcing, decoder_logits_valid, decoder_logits_train)
 
-    loss, train_op = init_optimizer(decoder_logits, decoder_target)
+    loss, train_op = init_optimizer(decoder_logits, decoder_target,
+                                    learning_rate)
     # We need the values to be between 0 and 1 to be easy to parameterize with a network for regression
-    decoder_prediction = decoder_logits*num_nodes
+    decoder_prediction = get_Plouffe_reconstruction(decoder_logits, seq_length, num_nodes)
     saver = tf.train.Saver(var_list=tf.global_variables())
     ########
     # Run Graph
     ########
     with tf.Session() as session:
         session.run(tf.global_variables_initializer())
-        df = PlouffeAnimation.make_dataset(dataset_size)
-        data = df['Plouffe'].tolist()
+        train_df = PlouffeLib.make_dataset(dataset_size, num_nodes, num_frames)
+        data = train_df['Plouffe'].tolist()
         training_data = data[:int(dataset_size*0.8)]
         valid_data = data[int(dataset_size*0.8):int(dataset_size)]
 
-        train_iterator = PlouffeAnimation.Iterator(training_data,
-                                                   num_nodes,
-                                                   num_frames,
-                                                   batch_size)
+        train_iterator = PlouffeLib.Iterator(training_data,
+                                             num_nodes,
+                                             num_frames,
+                                             batch_size)
 
-        valid_iterator = PlouffeAnimation.Iterator(valid_data,
-                                                   num_nodes,
-                                                   num_frames,
-                                                   batch_size)
+        valid_iterator = PlouffeLib.Iterator(valid_data,
+                                             num_nodes,
+                                             num_frames,
+                                             batch_size)
 
         train_epoch_mean_loss, valid_epoch_mean_loss, step, mean_loss = 0,0,0,0
         train_losses, valid_losses = [], []
@@ -372,6 +365,7 @@ def train_on_plouffe_copy(sess_args, load_params):
 
             mean_valid_duration = 0
             # tqdm iterator
+            assert dataset_size*0.15 < batch_size
             num_valid_steps = int(dataset_size*0.15/batch_size)
             valid_epoch = trange(num_valid_steps, desc='Loss', leave=True)
             ### Validating
@@ -387,22 +381,24 @@ def train_on_plouffe_copy(sess_args, load_params):
                 valid_epoch.refresh()
 
             ### Logging
-            log_dict['Epoch'] = current_epoch
-            log_dict['TrainingLoss'] = train_epoch_mean_loss/num_train_steps
-            log_dict['MeanTrainingDuration'] = mean_train_duration/num_train_steps
-            log_dict['ValidationLoss'] = valid_epoch_mean_loss/num_valid_steps
-            log_dict['MeanValidationDuration'] = mean_valid_duration/num_valid_steps
+            # TODO find a better way to log hyperparameters
+            log_dict['num_frames'] = num_frames
+            log_dict['num_nodes'] = num_nodes
+            log_dict['batch_size'] = batch_size
+            log_dict['cell_size'] = cell_size
+            log_dict['dataset_size'] = dataset_size
+            log_dict['max_num_epoch'] = max_num_epoch
+            log_dict['checkpoint_path'] = checkpoint_path
+            log_dict['checkpoint_name'] = checkpoint_name
+            log_dict['Epoch'].append(current_epoch)
+            log_dict['TrainingLoss'].append(train_epoch_mean_loss/num_train_steps)
+            log_dict['MeanTrainingDuration'].append(mean_train_duration/num_train_steps)
+            #print(valid_epoch_mean_loss)
+            #print(num_valid_steps)
+            log_dict['ValidationLoss'].append(valid_epoch_mean_loss/num_valid_steps)
+            log_dict['MeanValidDuration'].append(mean_valid_duration/num_valid_steps)
 
             log_df = pd.DataFrame(log_dict)
-            _save_df(log_df, checkpoint_path)
+            _save_df(log_df, checkpoint_path+checkpoint_name + '.pcl')
             current_epoch += 1
-            saver.save(sess=session, save_path=checkpoint_path)
-            ### Testing
-            # Here we use the model in its current state and we try to reproduce the Plouffe Graph for an interesting
-            # case.
-            #if current_epoch % sample_step == 2:
-            #    test_and_display(session, encoder_input_ph, is_validation, decoder_prediction)
-
-
-#if __name__=="__main__":
-#    train_on_plouffe_copy()
+            saver.save(sess=session, save_path=checkpoint_path+checkpoint_name)

@@ -13,7 +13,8 @@ RUN \
   	scipy \
   	jupyter \
   	pdb \
-  	tqdm
+  	tqdm \
+        pyyaml
 
  COPY ./ /root/DLFractalSequences
 
