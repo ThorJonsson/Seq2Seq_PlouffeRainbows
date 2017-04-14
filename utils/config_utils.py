@@ -68,7 +68,7 @@ class Config:
         trainingArgs.add_argument('--learningRate', type=float, default=0.01, help='learning rate')
         trainingArgs.add_argument('--numNodes', type=int, default=100, help='number of nodes in Plouffe')
         trainingArgs.add_argument('--numFrames', type=int, default=200, help='number of frames in Plouffe')
-        trainingArgs.add_argument('--teacherForcingProp', type=float, default=0.5, help='teacher forcing prop')
+        trainingArgs.add_argument('--teacherForcingProb', type=float, default=0.5, help='teacher forcing prop')
 
         '''
         # TODO

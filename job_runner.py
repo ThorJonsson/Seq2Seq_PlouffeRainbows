@@ -145,8 +145,12 @@ def train_many_jobs(sess_args):
                 print('learning_rate:', lr)
                 print('batch size:', batch_size)
                 print('num_nodes:', num_nodes)
+
+                checkpoint_name_idx = 0
                 checkpoint_name = name_list[log_dir_num]+str(np.random.randint(0,1000))
                 print(checkpoint_name)
+                print(len(name_list))
+                exit()
                 train_from_config(lr,
                                   batch_size,
                                   num_nodes,
@@ -155,7 +159,7 @@ def train_many_jobs(sess_args):
                                   log_dir_path,
                                   train_option,
                                   sys.argv)
-                log_dir_num += 1
+                
 
 if __name__ == "__main__":
     train_many_jobs()
