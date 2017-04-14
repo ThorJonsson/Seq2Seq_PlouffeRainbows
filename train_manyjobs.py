@@ -14,6 +14,8 @@ from utils.config_utils import Config, flat_dict, flat_dict_helper
 def train_from_config(learning_rate,
                       batch_size,
                       num_nodes,
+                      dataset_size,
+                      teacher_forcing,
                       checkpoint_name,
                       log_dir_num,
                       log_dir_path,
@@ -35,7 +37,7 @@ def train_from_config(learning_rate,
     config_string = ""
 
     # reset log_dir s.t. we have one dir for each job
-    log_dir_path += '/exp' + str(log_dir_num)
+    log_dir_path += '/exp' + str(log_dir_num) + '/'
     #print (log_dir_path)
 
     ##########
@@ -46,7 +48,8 @@ def train_from_config(learning_rate,
     config_string += ' --' + 'numNodes' + ' ' + str(num_nodes)
     config_string += ' --' + 'checkpointName' + ' ' + str(checkpoint_name)
     config_string += ' --' + 'checkpointDir' + ' ' + str(log_dir_path)
-
+    config_string += ' --' + 'datasetSize' + ' ' + str(dataset_size)
+    config_string += ' --' + 'teacherForcingProb' + ' ' + str(teacher_forcing)
     print(config_string)
     #print(log_dir_name)
 
@@ -65,7 +68,7 @@ def train_from_config(learning_rate,
     # For jobscheduler
     if train_option == 'copper':
         sqsub = 'sqsub -q gpu -f mpi -n 8 --gpp 1 -r 3600 -o ' + log_dir_path
-        sqsub += '/' + checkpoint_name + '%J.out --mpp=92g --nompirun '
+        sqsub += checkpoint_name + '%J.out --mpp=92g --nompirun '
         print(sqsub + command)
         #exit()
         subprocess.call(sqsub + command, shell=True)
@@ -129,7 +132,10 @@ def train_many_jobs(sess_args):
     num_nodes_bin = sess_args['hyperparameters.numNodes']
     batch_size_bin = sess_args['hyperparameters.batchSize']
     train_option = sess_args['globalParams.train']
+    dataset_size = sess_args['datasetParams.datasetSize']
+    teacher_forcing = sess_args['hyperparameters.teacherForcingProb']
 
+    checkpoint_name_idx = 0
     # Random hyperparameter search for the learning rate, the batch size and
     # the heatmap radius
     for i, lr in enumerate(lr_bin):
@@ -147,17 +153,32 @@ def train_many_jobs(sess_args):
                 print('learning_rate:', lr)
                 print('batch size:', batch_size)
                 print('num_nodes:', num_nodes)
-                checkpoint_name = name_list[log_dir_num]+str(np.random.randint(0,1000))
+
+                print(checkpoint_name_idx)
+
+                checkpoint_name = name_list[checkpoint_name_idx]+str(np.random.randint(0,1000))
                 print(checkpoint_name)
+                #print(len(name_list))
+                #exit()
+                
                 train_from_config(lr,
                                   batch_size,
                                   num_nodes,
+                                  dataset_size,
+                                  teacher_forcing,
                                   checkpoint_name,
                                   log_dir_num,
                                   log_dir_path,
                                   train_option,
                                   sys.argv)
+                
                 log_dir_num += 1
+                #print(checkpoint_name_idx)
+                if checkpoint_name_idx < len(name_list)-1:
+                    checkpoint_name_idx += 1
+                else:
+                    checkpoint_name_idx = 0
+
 
 if __name__=="__main__":
     config_path = os.getcwd()
