@@ -13,16 +13,16 @@ datasetParams:
   syntheticDataset: plouffe
   datasetTag: plouffe-engg3130
   #ratioDataset: 10
-  datasetSize: 10000
+  datasetSize: 7000
 # Neural Network Arguments
 networkOptions:
   cellSize: 128
   #hiddenSize: 256
 # Hyperparameters
 hyperparameters:
-  numFrames: [100, 150, 200, 250, 512]
-  numNodes: [200, 400, 800, 1600, 2500, 3200]
-  batchSize: [256, 128, 64, 32, 10]
+  numFrames: [200]
+  numNodes: [200]
+  batchSize: [10]
   maxEpoch: 100
   saveEvery: 10
   validateEvery: 1

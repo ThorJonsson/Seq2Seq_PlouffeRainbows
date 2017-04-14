@@ -365,7 +365,7 @@ def train_on_plouffe_copy(sess_args, load_params):
 
             mean_valid_duration = 0
             # tqdm iterator
-            assert dataset_size*0.15 < batch_size
+            #assert dataset_size*0.15 < batch_size
             num_valid_steps = int(dataset_size*0.15/batch_size)
             valid_epoch = trange(num_valid_steps, desc='Loss', leave=True)
             ### Validating
