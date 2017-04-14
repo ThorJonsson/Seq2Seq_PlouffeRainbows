@@ -4,7 +4,7 @@ import os
 import os.path
 import sys
 import re
-import seaborn
+#import seaborn
 
 pcl_files = []
 dataframes = []
@@ -30,6 +30,7 @@ with open("plot_names.txt") as name_file:
   lines = [line.rstrip() for line in name_file]
   #print (lines)
 
+lines = filter(None, lines)
 names_list = []
 for line in lines:
   line = line.split()
@@ -43,12 +44,17 @@ for line in lines:
 for i, pclplot in enumerate(pcl_toplot):
   df = pandas.read_pickle(pclplot)
   df_new = df[['TrainingLoss','ValidationLoss']]
-  df_new = df_new[:21]
+  df_new = df_new[:9]
 
   for j, names in enumerate(names_list):
+    #print(j)
     if names[0] in pclplot:
-      df_new = df_new.rename(columns={'TrainingLoss':'TrainingLoss - ' + names[1]})
-      df_new = df_new.rename(columns={'ValidationLoss':'ValidationLoss - ' + names[1]})
+        #print(names[0])
+        #print(names[1])
+        #print(j)
+        #print names
+        df_new = df_new.rename(columns={'TrainingLoss':'TrainingLoss - ' + names[1]})
+        df_new = df_new.rename(columns={'ValidationLoss':'ValidationLoss - ' + names[1]})
 
   if i == 0:
     ax = df_new.plot(style=['-','--'])
