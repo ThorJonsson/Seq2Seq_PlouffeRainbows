@@ -15,7 +15,7 @@ This is a general purpose Sequence-to-Sequence Regression model which can predic
 To install DLFractalSequences in an Anaconda environment:
 
 ```python
-conda env create -f environmental.yml
+conda env create -f environment.yml
 ```
 
 To activate Anaconda environment:
