@@ -4,7 +4,7 @@ import pandas as pd
 def make_data():
     x = np.random.randint(5000, size=5000)
     df = pd.DataFrame(x)
-    df['Plouffe'] = df[0].apply(
+    df['Plouffe'] = df[0].apply()
 
 def batch_up(inputs, batch_size,  max_sequence_length=None):
     """

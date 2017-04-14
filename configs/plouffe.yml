@@ -21,7 +21,7 @@ networkOptions:
 # Hyperparameters
 hyperparameters:
   numFrames: 200
-  numNodes: 40
+  numNodes: 200
   batchSize: 10
   maxEpoch: 40
   teacherForcingProb: 0.5
