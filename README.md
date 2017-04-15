@@ -7,12 +7,12 @@ TensorFlow implementation of a novel open-source Seq2SeqRegression API for perfo
 * [Dataset](#dataset)
 * [Installation](#installation)
 * [Anaconda](#anaconda)
-	* [Anaconda: Installation](#anaconda:-installation)
-	* [Anaconda: Train](#anaconda:-train)
+ * [Anaconda: Installation](#anaconda-installation)
+ * [Anaconda: Train](#anaconda-train)
 * [Docker](#docker)
-	* [Docker: Installation](#docker:-installation)
-	* [Docker: Train](#docker:-train)
-* [Sharcnet: Train Multiple Jobs](#sharcnet:-train-multiple-jobs)
+ * [Docker: Installation](#docker-installation)
+ * [Docker: Train](#docker-train)
+* [Sharcnet](#sharcnet)
 * [Future Work](#future-work)
 
 * * *
