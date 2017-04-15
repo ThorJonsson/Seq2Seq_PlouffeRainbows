@@ -6,7 +6,7 @@ globalParams:
   train: local
   #modelTag: engg3130
   #rootDir: /plouffe/
-  checkpointDir: /logs/checkpoints/
+  checkpointDir: /logs/Holuhraun/
   checkpointName: Holuhraun
 # Dataset Arguments
 datasetParams:
@@ -27,7 +27,7 @@ hyperparameters:
   teacherForcingProb: 0.5
 #  saveEvery: 10
 #  validateEvery: 1
-  learningRate: 0.01
+  learningRate: 0.001
 #  learningRateDecay: 1
 #  initMomentum: 0.5
 #  finalMomentum: 0.9
