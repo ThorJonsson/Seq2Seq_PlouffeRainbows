@@ -4,11 +4,34 @@ TensorFlow implementation of a novel open-source Seq2SeqRegression API for perfo
 
 ## Table of Contents
 
+* [Dataset](#dataset)
+* [Installation](#installation)
 * [Anaconda Installation](#anaconda)
 * [Docker Installation](#docker)
 * [Sharcnet: Train Multiple Jobs](#sharcnet)
 
 * * *
+
+### Dataset
+
+The Plouffe dataset is already included. A dataset of multidimensional vectors that represent the Plouffe Graph gets constructed during training. The dataset can be configured easily in the `plouffe.yml` file inside the `configs` folder.
+
+### Installation
+
+The program requires the following dependencies (easy to install using pip, Anaconda or Docker):
+
+* python 2.7
+* tensorflow API (tested with r1.0.0)
+* numpy
+* scipy
+* pandas
+* matplotlib
+* jupyter
+* networkx
+* tqdm
+* pyyaml
+* jupyterthemes
+* seaborn
 
 ### Anaconda Installation
 

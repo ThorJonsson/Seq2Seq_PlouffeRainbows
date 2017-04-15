@@ -10,9 +10,9 @@ dependencies:
   - jupyter
   - networkx
   - tensorflow
-  - tqdm
   - numpy
   - pyyaml
+  - seaborn
   - pip:
     - tqdm
     - jupyterthemes
