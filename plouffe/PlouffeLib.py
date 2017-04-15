@@ -68,7 +68,7 @@ class PlouffeSequence(object):
 
     def next_frame(self,step):
         self.fig.clf()
-        self.cursor += self.step
+        self.cursor += step
         # update graph - remove existing edges and generate edges from the new cursor value
         self._update_graph()
         # generate new drawing elements for animation
@@ -97,19 +97,26 @@ class ReconPlouffeViewer(object):
         self.pos = nx.circular_layout(self.graph) # Set position of nodes in G
         self.fig = plt.figure(figsize=(8,8))
 
+        #nodes = nx.draw_networkx_nodes(self.graph, pos=self.pos, node_size=10, node_label=False)
+        #edges = nx.draw_networkx_edges(self.graph, pos=self.pos)
+
+        #return nodes, edges
+
     def _update_graph(self):
         self.graph.remove_edges_from(self.curr_graph)
         self.curr_graph = [(i, int(self.data[self.cursor][i]%self.num_nodes)) for i in range(self.num_nodes-1)]
         self.graph.add_edges_from(self.curr_graph)
+        #print(self.cursor)
 
-    def next_frame(self,step):
+    def next_frame(self, step):
         self.fig.clf()
-        self.cursor += 1
+        self.cursor += step
         # update graph - remove existing edges and generate edges from the new cursor value
         self._update_graph()
         # generate new drawing elements for animation
-        nodes = nx.draw_networkx_nodes(self.graph,pos=self.pos,node_size=10,node_label=False)
-        edges = nx.draw_networkx_edges(self.graph,pos=self.pos)
+        nodes = nx.draw_networkx_nodes(self.graph, pos=self.pos, node_size=10, node_label=False)
+        edges = nx.draw_networkx_edges(self.graph, pos=self.pos)
+        #print(self.cursor)
         return nodes, edges
 
 

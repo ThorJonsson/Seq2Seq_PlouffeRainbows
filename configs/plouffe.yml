@@ -6,14 +6,14 @@ globalParams:
   train: local
   #modelTag: engg3130
   #rootDir: /plouffe/
-  checkpointDir: /logs/checkpoints/
-  checkpointName: Holuhraun
+  checkpointDir: /logs/lr05/
+  checkpointName: lr05
 # Dataset Arguments
 datasetParams:
   syntheticDataset: plouffe
   datasetTag: plouffe-engg3130
   ratioDataset: 20
-  datasetSize: 1000
+  datasetSize: 5000
 # Neural Network Arguments
 networkOptions:
   cellSize: 128
@@ -21,13 +21,13 @@ networkOptions:
 # Hyperparameters
 hyperparameters:
   numFrames: 200
-  numNodes: 40
+  numNodes: 1600
   batchSize: 10
   maxEpoch: 40
   teacherForcingProb: 0.5
 #  saveEvery: 10
 #  validateEvery: 1
-#  learningRate: 0.01
+  learningRate: 0.5
 #  learningRateDecay: 1
 #  initMomentum: 0.5
 #  finalMomentum: 0.9
