@@ -386,7 +386,7 @@ def train_on_plouffe_copy(sess_args, load_params):
                 step_desc = ('Epoch {}: loss = {} ({:.2f} sec/step)'.format(current_epoch, valid_batch_loss, duration))
                 valid_batch_loss_list.append(valid_batch_loss)
                 valid_epoch_mean_loss += valid_batch_loss[0]
-                valid_epoch.set_description(step_lsdesc)
+                valid_epoch.set_description(step_desc)
                 valid_epoch.refresh()
 
             ### Logging
