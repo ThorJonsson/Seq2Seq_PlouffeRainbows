@@ -83,7 +83,9 @@ To deploy and train on Docker container:
 docker run -it dlfractals:latest python train.py -c configs/plouffe.yml
 ```
 
-### Sharcnet: Train Multiple Jobs
+### Sharcnet
+
+The Shared Hierarchical Academic Research Computing Network (SHARCNET) is used when you want to run multiple jobs.
 
 Activate Tensorflow Python2.7 environment:
 
