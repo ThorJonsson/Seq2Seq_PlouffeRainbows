@@ -1,6 +1,6 @@
 # DLFractalSequences
 
-This is a general purpose Sequence-to-Sequence Regression model which can predict a multidimensional vector sequence based on previous observations. The system of study being analyzed here is the Plouffe Graph, a graph of the Bernoulli Numbers by French mathematician Simon Plouffe. More information about the Plouffe Graph can be found here: [Times Tables, Mandelbrot and the Heart of Mathematics](https://www.youtube.com/watch?v=qhbuKbxJsk8).
+TensorFlow implementation of a novel open-source Seq2SeqRegression API for performing a wide range of automatic feature extraction tasks outside of NLP. This general purpose Sequence-to-Sequence Regression model can predict a sequence of multidimensional vectors based on previous observations. The system of study being analyzed here is the Plouffe Graph, a graph by Canadian mathematician Simon Plouffe in 1974-1979. More information about the Plouffe Graph can be found here: [Times Tables, Mandelbrot and the Heart of Mathematics](https://www.youtube.com/watch?v=qhbuKbxJsk8).
 
 ## Table of Contents
 
