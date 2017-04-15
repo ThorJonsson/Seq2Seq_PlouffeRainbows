@@ -83,7 +83,7 @@ To deploy and train on Docker container:
 docker run -it dlfractals:latest python train.py -c configs/plouffe.yml
 ```
 
-### Sharcnet
+## Sharcnet
 
 The Shared Hierarchical Academic Research Computing Network (SHARCNET) is used when you want to run multiple jobs.
 
@@ -113,7 +113,7 @@ python train_manyjobs.py -c configs/plouffe_sharcnet.yml
 
 Note: The training inputs (i.e. dataset parameters, hyperparameters etc.) for training on a `sharcnet` machine can be modified in the `plouffe.yml` inside the `configs` folder. You must specify `train` option inside the YAML config file to be either `copper` or `local` when training on sharcnet.
 
-### Future Work
+## Future Work
 
 1. Perform futher analysis on the Plouffe Graph. We particularly want to analyze how arithmetic in embedding space corresponds to the group arithmetic in input space, and establish strong baselines in relation to that.
 
