@@ -27,7 +27,11 @@ hyperparameters:
   teacherForcingProb: 0.5
 #  saveEvery: 10
 #  validateEvery: 1
+<<<<<<< HEAD
+  learningRate: 0.001
+=======
   learningRate: 0.5
+>>>>>>> 533084e0e9339398ed62959f7a02ad249cd8f24f
 #  learningRateDecay: 1
 #  initMomentum: 0.5
 #  finalMomentum: 0.9
