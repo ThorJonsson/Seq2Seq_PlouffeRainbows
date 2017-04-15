@@ -351,6 +351,7 @@ def train_on_plouffe_copy(sess_args, load_params):
         current_epoch = 0
         while current_epoch < max_num_epoch:
             mean_train_duration = 0
+            train_epoch_mean_loss = 0
             # tqdm iterator
             num_train_steps = int(dataset_size*0.8/batch_size)
             train_epoch = trange(num_train_steps, desc='Loss', leave=True)
@@ -369,6 +370,7 @@ def train_on_plouffe_copy(sess_args, load_params):
                 train_epoch.refresh()
 
             mean_valid_duration = 0
+            valid_epoch_mean_loss = 0
             # tqdm iterator
             #assert dataset_size*0.15 < batch_size
             num_valid_steps = int(dataset_size*0.15/batch_size)
@@ -384,7 +386,7 @@ def train_on_plouffe_copy(sess_args, load_params):
                 step_desc = ('Epoch {}: loss = {} ({:.2f} sec/step)'.format(current_epoch, valid_batch_loss, duration))
                 valid_batch_loss_list.append(valid_batch_loss)
                 valid_epoch_mean_loss += valid_batch_loss[0]
-                valid_epoch.set_description(step_desc)
+                valid_epoch.set_description(step_lsdesc)
                 valid_epoch.refresh()
 
             ### Logging
