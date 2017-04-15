@@ -6,18 +6,22 @@ TensorFlow implementation of a novel open-source Seq2SeqRegression API for perfo
 
 * [Dataset](#dataset)
 * [Installation](#installation)
-* [Anaconda Installation](#anaconda)
-* [Docker Installation](#docker)
-* [Sharcnet: Train Multiple Jobs](#sharcnet)
-* [Future Work](#futurework)
+* [Anaconda](#anaconda)
+	* [Anaconda: Installation](#anaconda:-installation)
+	* [Anaconda: Train](#anaconda:-train)
+* [Docker](#docker)
+	* [Docker: Installation](#docker:-installation)
+	* [Docker: Train](#docker:-train)
+* [Sharcnet: Train Multiple Jobs](#sharcnet:-train-multiple-jobs)
+* [Future Work](#future-work)
 
 * * *
 
-### Dataset
+## Dataset
 
 The Plouffe dataset is already included. A dataset of multidimensional vectors that represent the Plouffe Graph gets constructed during training. The dataset can be configured easily in the `plouffe.yml` file inside the `configs` folder.
 
-### Installation
+## Installation
 
 The program requires the following dependencies (easy to install using pip, Anaconda or Docker):
 
@@ -34,7 +38,9 @@ The program requires the following dependencies (easy to install using pip, Anac
 * jupyterthemes
 * seaborn
 
-### Anaconda Installation
+## Anaconda
+
+### Anaconda: Installation
 
 To install DLFractalSequences in an Anaconda environment:
 
@@ -48,6 +54,8 @@ To activate Anaconda environment:
 source activate dlfractals-env
 ```
 
+### Anaconda: Train
+
 Train Seq2Seq Regression model on the local machine using the Plouffe dataset:
 
 ```python
@@ -56,7 +64,9 @@ python train.py -c configs/plouffe.yml
 
 Note: The training inputs (i.e. dataset parameters, hyperparameters etc.) for training on a `local` machine can be modified in the `plouffe.yml` inside the `configs` folder.
 
-### Docker Installation
+## Docker
+
+### Docker: Installation
 
 **Prerequisites: Docker installed on your machine. If you don't have docker installed already, then go here to [Docker Setup](https://docs.docker.com/engine/getstarted/step_one/)**
 
@@ -65,6 +75,9 @@ To build Docker image:
 ```python
 docker build -t dlfractals:latest .
 ```
+
+### Docker: Train
+
 To deploy and train on Docker container:
 ```python
 docker run -it dlfractals:latest python train.py -c configs/plouffe.yml
