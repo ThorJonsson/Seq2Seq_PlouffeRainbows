@@ -28,7 +28,7 @@ class PlouffeGraph(object):
         self.N = N
         self.k = k
         # This list represents the Plouffe Graph for exponent k
-        self.data = [(i, int(i*k%N)) for i in range(N)]
+        self.data = [(i, int(i*k)%N) for i in range(N)]
         '''
         We could also solve this by using class inheritance
         but this will do for now as a placeholder for our nx.Graph object - but is class inheritance evil?
@@ -55,7 +55,7 @@ class PlouffeSequence(object):
 
     def _update_graph(self):
         self.plouffe.graph.remove_edges_from(self.plouffe.data)
-        self.plouffe.data = [(i, int(i*self.cursor%self.n_nodes)) for i in range(self.n_nodes)]
+        self.plouffe.data = [(i, int(i*self.cursor)%self.n_nodes) for i in range(self.n_nodes)]
         self.plouffe.graph.add_edges_from(self.plouffe.data)
 
     def add2graph(list_of_tuples):
