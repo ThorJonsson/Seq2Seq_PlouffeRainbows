@@ -22,53 +22,50 @@ import pandas as pd
 import random
 import pdb
 
-class PlouffeGraph(object):
+class PlouffeGraph_v2(object):
 
     def __init__(self,N, k):
-        self.N = N
+        self.N = N 
         self.k = k
-        # This list represents the Plouffe Graph for exponent k
         self.data = [(i, int(i*k)%N) for i in range(N)]
-        '''
-        We could also solve this by using class inheritance
+        ''' 
+        We could also solve this by using class inheritance 
         but this will do for now as a placeholder for our nx.Graph object - but is class inheritance evil?
         '''
         self.graph = nx.Graph(data = self.data)
-
-    def draw(self):
+      
+    def DrawGraph(self):
         plt.figure(figsize=(8,8))
         nx.draw_circular(self.graph,node_size=10, alpha=0.7,with_labels = False)
         plt.axis('equal')
         plt.show()
-        plt.clf()
 
-
-class PlouffeSequence(object):
-
+class PlouffeSequence_v2(object):
+    
     def __init__(self, N, k, limit, n_frames):
-        self.plouffe = PlouffeGraph(N, k)
+        self.plouffe = PlouffeGraph_v2(N, k)
         self.n_nodes = N
         self.cursor = k
         self.step = (limit - k)/float(n_frames)
         self.pos = nx.circular_layout(self.plouffe.graph) # Set position of nodes in G
         self.fig = plt.figure(figsize=(8,8))
-
+    
     def _update_graph(self):
         self.plouffe.graph.remove_edges_from(self.plouffe.data)
-        self.plouffe.data = [(i, int(i*self.cursor)%self.n_nodes) for i in range(self.n_nodes)]
+        self.plouffe.data = [(i, int(i*self.cursor)%self.n_nodes)for i in range(self.n_nodes)]
         self.plouffe.graph.add_edges_from(self.plouffe.data)
-
+    
     def add2graph(list_of_tuples):
         self.plouffe.graph.remove_edges_from(self.plouffe.data)
         self.plouffe.data = list_of_tuples
         self.plouffe.graph.add_edges_from(self.plouffe.data)
-
+        
     def _new_graph(self):
-        self.plouffe = PlouffeGraph(self.n_nodes,self.cursor)
-
+        self.plouffe = PlouffeGraph_v2(self.n_nodes,self.cursor)
+    
     def next_frame(self,step):
         self.fig.clf()
-        self.cursor += step
+        self.cursor += self.step
         # update graph - remove existing edges and generate edges from the new cursor value
         self._update_graph()
         # generate new drawing elements for animation
