@@ -403,7 +403,7 @@ def train_on_plouffe_copy(sess_args, load_params):
             #print(valid_epoch_mean_loss)
             #print(num_valid_steps)
             log_dict['ValidationLoss'].append(valid_batch_loss_list)
-            log_dict['MeanValidDuration'].append(mmean_valid_duration_list)
+            log_dict['MeanValidDuration'].append(mean_valid_duration_list)
 
             log_df = pd.DataFrame(log_dict)
             _save_df(log_df, checkpoint_path+checkpoint_name + '.pcl')
