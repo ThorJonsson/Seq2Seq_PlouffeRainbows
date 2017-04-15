@@ -133,9 +133,9 @@ def decoder_inference(decoder_cell, context_vector, encoder_state, batch_size, m
 
 
 # Setup optimizer function (returns the train_op)
-def init_optimizer(decoder_logits, decoder_targets):
+def init_optimizer(decoder_logits, decoder_targets, lr):
     loss = l2_loss(logits=decoder_logits, targets=decoder_targets)
-    train_op = tf.train.AdamOptimizer().minimize(loss)
+    train_op = tf.train.AdamOptimizer(learning_rate=lr).minimize(loss)
     return loss, train_op
 
 
@@ -253,7 +253,7 @@ def train_on_plouffe_copy(sess_args, load_params):
       dataset_size = sess_args['datasetParams.datasetSize']
       max_num_epoch = sess_args['hyperparameters.maxEpoch']
       teacher_forcing_prob = sess_args['hyperparameters.teacherForcingProb']
-
+      learning_rate = sess_args['hyperparameters.learningRate']
       checkpoint_path = os.getcwd() + sess_args['globalParams.checkpointDir']
       checkpoint_name = sess_args['globalParams.checkpointName']
 
@@ -263,13 +263,13 @@ def train_on_plouffe_copy(sess_args, load_params):
       ########
       num_frames = sess_args['numFrames']
       num_nodes = sess_args['numNodes']
-      print(num_nodes)
+      #print(num_nodes)
       batch_size = sess_args['batchSize']
       cell_size = sess_args['cellSize']
       dataset_size = sess_args['datasetSize']
       max_num_epoch = sess_args['maxEpoch']
       teacher_forcing_prob = sess_args['teacherForcingProb']
-
+      learning_rate = sess_args['learningRate']
       checkpoint_path = sess_args['checkpointDir']
       checkpoint_name = sess_args['checkpointName']
 
@@ -318,7 +318,8 @@ def train_on_plouffe_copy(sess_args, load_params):
 
     decoder_logits = tf.where(is_teacher_forcing, decoder_logits_valid, decoder_logits_train)
 
-    loss, train_op = init_optimizer(decoder_logits, decoder_target)
+    loss, train_op = init_optimizer(decoder_logits, decoder_target,
+                                    learning_rate)
     # We need the values to be between 0 and 1 to be easy to parameterize with a network for regression
     decoder_prediction = get_Plouffe_reconstruction(decoder_logits, seq_length, num_nodes)
     saver = tf.train.Saver(var_list=tf.global_variables())
@@ -364,6 +365,7 @@ def train_on_plouffe_copy(sess_args, load_params):
 
             mean_valid_duration = 0
             # tqdm iterator
+            #assert dataset_size*0.15 < batch_size
             num_valid_steps = int(dataset_size*0.15/batch_size)
             valid_epoch = trange(num_valid_steps, desc='Loss', leave=True)
             ### Validating
@@ -391,6 +393,8 @@ def train_on_plouffe_copy(sess_args, load_params):
             log_dict['Epoch'].append(current_epoch)
             log_dict['TrainingLoss'].append(train_epoch_mean_loss/num_train_steps)
             log_dict['MeanTrainingDuration'].append(mean_train_duration/num_train_steps)
+            #print(valid_epoch_mean_loss)
+            #print(num_valid_steps)
             log_dict['ValidationLoss'].append(valid_epoch_mean_loss/num_valid_steps)
             log_dict['MeanValidDuration'].append(mean_valid_duration/num_valid_steps)
 
