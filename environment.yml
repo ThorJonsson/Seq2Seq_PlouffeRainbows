@@ -9,7 +9,6 @@ dependencies:
   - matplotlib
   - jupyter
   - networkx
-  - tensorflow
   - numpy
   - pyyaml
   - seaborn

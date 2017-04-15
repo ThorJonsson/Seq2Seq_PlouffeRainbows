@@ -7,14 +7,16 @@ RUN \
 
 RUN \
 	pip install -U numpy \
-  	pandas \
-  	networkx \
-  	matplotlib \
-  	scipy \
-  	jupyter \
-  	pdb \
-  	tqdm \
-        pyyaml
+    scipy \
+    pandas \
+    matplotlib \
+    jupyter \
+    networkx \
+    numpy \
+    pyyaml \
+    seaborn \
+    jupyterthemes
+
 
  COPY ./ /root/DLFractalSequences
 

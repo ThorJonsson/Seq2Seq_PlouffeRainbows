@@ -9,6 +9,7 @@ TensorFlow implementation of a novel open-source Seq2SeqRegression API for perfo
 * [Anaconda Installation](#anaconda)
 * [Docker Installation](#docker)
 * [Sharcnet: Train Multiple Jobs](#sharcnet)
+* [Future Work](#futurework)
 
 * * *
 
@@ -96,5 +97,13 @@ python train_manyjobs.py -c configs/plouffe_sharcnet.yml
 ```
 
 Note: The training inputs (i.e. dataset parameters, hyperparameters etc.) for training on a `sharcnet` machine can be modified in the `plouffe.yml` inside the `configs` folder. You must specify `train` option inside the YAML config file to be either `copper` or `local` when training on sharcnet.
+
+### Future Work
+
+1. Perform futher analysis on the Plouffe Graph. We particularly want to analyze how arithmetic in embedding space corresponds to the group arithmetic in input space, and establish strong baselines in relation to that.
+
+2. Add libraries that allow more experimentation with attention and external memory.
+
+3. Explore more datasets (i.e. video sequences) which would leverage the automatic feature extraction functionality of the Seq2Seq Regression model. 
 
 * * * 
