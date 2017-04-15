@@ -345,8 +345,8 @@ def train_on_plouffe_copy(sess_args, load_params):
 
         train_epoch_mean_loss, valid_epoch_mean_loss, step, mean_loss = 0,0,0,0
         train_losses, valid_losses = [], []
-        mean_train_duration_list, train_batch_loss_list = []
-        mean_valid_duration_list, valid_batch_loss_list = []
+        mean_train_duration_list, train_batch_loss_list = [], []
+        mean_valid_duration_list, valid_batch_loss_list = [], []
 
         current_epoch = 0
         while current_epoch < max_num_epoch:
