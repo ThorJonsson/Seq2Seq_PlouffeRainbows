@@ -345,6 +345,9 @@ def train_on_plouffe_copy(sess_args, load_params):
 
         train_epoch_mean_loss, valid_epoch_mean_loss, step, mean_loss = 0,0,0,0
         train_losses, valid_losses = [], []
+        mean_train_duration_list, train_batch_loss_list = []
+        mean_valid_duration_list, valid_batch_loss_list = []
+
         current_epoch = 0
         while current_epoch < max_num_epoch:
             mean_train_duration = 0
@@ -358,9 +361,9 @@ def train_on_plouffe_copy(sess_args, load_params):
                 train_batch_loss,_ = session.run([loss, train_op], feed_dict)
                 duration = time.time() - start_time
                 mean_train_duration += duration
-                log_dict['MeanTrainingDuration'].append(mean_train_duration)
+                mean_train_duration_list.append(mean_train_duration)
                 step_desc = ('Epoch {}: loss = {} ({:.2f} sec/step)'.format(current_epoch, train_batch_loss, duration))
-                log_dict['TrainingLoss'].append(train_batch_loss)
+                train_batch_loss_list.append(train_batch_loss)
                 train_epoch_mean_loss += train_batch_loss
                 train_epoch.set_description(step_desc)
                 train_epoch.refresh()
@@ -377,9 +380,9 @@ def train_on_plouffe_copy(sess_args, load_params):
                 valid_batch_loss = session.run([loss], feed_dict)
                 duration = time.time() - start_time
                 mean_valid_duration += duration
-                log_dict['MeanValidDuration'].append(mean_valid_duration)
+                mean_valid_duration_list.append(mean_valid_duration)
                 step_desc = ('Epoch {}: loss = {} ({:.2f} sec/step)'.format(current_epoch, valid_batch_loss, duration))
-                log_dict['ValidationLoss'].append(valid_batch_loss)
+                valid_batch_loss_list.append(valid_batch_loss)
                 valid_epoch_mean_loss += valid_batch_loss[0]
                 valid_epoch.set_description(step_desc)
                 valid_epoch.refresh()
@@ -395,12 +398,12 @@ def train_on_plouffe_copy(sess_args, load_params):
             log_dict['checkpoint_path'] = checkpoint_path
             log_dict['checkpoint_name'] = checkpoint_name
             log_dict['Epoch'].append(current_epoch)
-            #log_dict['TrainingLoss'].append(train_epoch_mean_loss/num_train_steps)
-            #log_dict['MeanTrainingDuration'].append(mean_train_duration/num_train_steps)
+            log_dict['TrainingLoss'].append(train_batch_loss_list)
+            log_dict['MeanTrainingDuration'].append(mean_train_duration_list)
             #print(valid_epoch_mean_loss)
             #print(num_valid_steps)
-            #log_dict['ValidationLoss'].append(valid_epoch_mean_loss/num_valid_steps)
-            #log_dict['MeanValidDuration'].append(mean_valid_duration/num_valid_steps)
+            log_dict['ValidationLoss'].append(valid_batch_loss_list)
+            log_dict['MeanValidDuration'].append(mmean_valid_duration_list)
 
             log_df = pd.DataFrame(log_dict)
             _save_df(log_df, checkpoint_path+checkpoint_name + '.pcl')
