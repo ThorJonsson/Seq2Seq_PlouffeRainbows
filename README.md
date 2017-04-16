@@ -13,6 +13,7 @@ TensorFlow implementation of a novel open-source Seq2SeqRegression API for perfo
 	* [Docker: Installation](#docker-installation)
 	* [Docker: Train](#docker-train)
 * [Sharcnet](#sharcnet)
+* [IPython Notebook](#ipython-notebook)
 * [Future Work](#future-work)
 
 * * *
@@ -112,6 +113,16 @@ python train_manyjobs.py -c configs/plouffe_sharcnet.yml
 ```
 
 Note: The training inputs (i.e. dataset parameters, hyperparameters etc.) for training on a `sharcnet` machine can be modified in the `plouffe.yml` inside the `configs` folder. You must specify `train` option inside the YAML config file to be either `copper` or `local` when training on sharcnet.
+
+## IPython Notebook
+
+An IPython Notebook of the Seq2Seq Regression model can be found inside the `notebooks` folder. This notebook serves to complement the paper and walks you through the computational graph. It also provides a background of the Plouffe Graph dataset.
+
+In order to see the interactive graphics of the Seq2Seq Regression model's predictions, you will need to download this pre-trained model at the Google Drive link,
+
+https://drive.google.com/open?id=0B86gEeQqfnjtMERTV2tjLWMwNnc
+
+After downloading, you need to move/copy the `lr0002` folder that was downloaded from the Google Drive link into the `logs` folder.
 
 ## Future Work
 
