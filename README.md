@@ -150,5 +150,3 @@ Note: The training inputs (i.e. dataset parameters, hyperparameters etc.) for tr
 3. Explore more datasets (i.e. video sequences) which would leverage the automatic feature extraction functionality of the Seq2Seq Regression model. 
 
 * * * 
-=======
-* * * 
