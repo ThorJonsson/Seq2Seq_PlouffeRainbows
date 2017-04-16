@@ -1,10 +1,11 @@
-# DLFractalSequences
+# Seq2Seq_PlouffeRainbows
 
 TensorFlow implementation of a novel open-source Seq2SeqRegression API for performing a wide range of automatic feature extraction tasks outside of NLP. This general purpose Sequence-to-Sequence Regression model can predict a sequence of multidimensional vectors based on previous observations. The system of study being analyzed here is the Plouffe Graph, a graph by Canadian mathematician Simon Plouffe in 1974-1979. More information about the Plouffe Graph can be found here: [Times Tables, Mandelbrot and the Heart of Mathematics](https://www.youtube.com/watch?v=qhbuKbxJsk8).
 
 ## Table of Contents
 
 * [Dataset](#dataset)
+* [IPython Notebook](#ipython-notebook)
 * [Installation](#installation)
 * [Anaconda](#anaconda)
 	* [Anaconda: Installation](#anaconda-installation)
@@ -20,6 +21,31 @@ TensorFlow implementation of a novel open-source Seq2SeqRegression API for perfo
 ## Dataset
 
 The Plouffe dataset is already included. A dataset of multidimensional vectors that represent the Plouffe Graph gets constructed during training. The dataset can be configured easily in the `plouffe.yml` file inside the `configs` folder.
+
+## IPython Notebook
+
+An IPython Notebook of the Seq2Seq Regression model can be found inside the `notebooks` folder. This notebook serves to complement the paper and walks you through the computational graph. It also provides a background of the Plouffe Graph dataset.
+
+In order to see the interactive graphics of the Seq2Seq Regression model's predictions, you will need to download this pre-trained model at the Google Drive link,
+
+https://drive.google.com/open?id=0B86gEeQqfnjtMERTV2tjLWMwNnc
+
+Create a `logs` directory in the root of the `Seq2Seq_PlouffeRainbows` folder. 
+
+After downloading, you need to move/copy the `lr0002` folder that was downloaded from the Google Drive link into the `logs` folder.
+
+### Launch IPython Notebook
+
+```sh
+cd notebooks
+jupyter notebook
+```
+
+Note: The iopoub rate limits are too low by default, for this visualization heavy project. To fix this, you can launch the IPython notebook the following way:
+
+```sh
+jupyter notebook --NotebookApp.iopub_data_rate_limit=10000000000
+```
 
 ## Installation
 
@@ -121,4 +147,6 @@ Note: The training inputs (i.e. dataset parameters, hyperparameters etc.) for tr
 
 3. Explore more datasets (i.e. video sequences) which would leverage the automatic feature extraction functionality of the Seq2Seq Regression model. 
 
+* * * 
+=======
 * * * 
