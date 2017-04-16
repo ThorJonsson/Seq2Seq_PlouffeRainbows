@@ -63,7 +63,7 @@ plt.title('Training and Mean Validation Cost')
 plt.xlabel('Computational Steps')
 plt.ylabel('Cost')
 plt.legend(bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0.)
-plt.savefig('test.png', bbox_inches='tight')
+plt.savefig('test.eps', bbox_inches='tight')
 plt.show()
 
 '''
