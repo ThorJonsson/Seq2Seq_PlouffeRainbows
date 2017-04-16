@@ -283,6 +283,8 @@ def train_on_plouffe_copy(sess_args, load_params):
 
     sample_step = 100
     p = 0.5
+    train_ratio = 0.70
+    valid_ratio = 0.30
 
     ########
     # Define the Computational Graph
@@ -330,8 +332,8 @@ def train_on_plouffe_copy(sess_args, load_params):
         session.run(tf.global_variables_initializer())
         train_df = PlouffeLib.make_dataset(dataset_size, num_nodes, num_frames)
         data = train_df['Plouffe'].tolist()
-        training_data = data[:int(dataset_size*0.8)]
-        valid_data = data[int(dataset_size*0.8):int(dataset_size)]
+        training_data = data[:int(dataset_size*train_ratio)]
+        valid_data = data[int(dataset_size*train_ratio):int(dataset_size)]
 
         train_iterator = PlouffeLib.Iterator(training_data,
                                              num_nodes,
@@ -353,7 +355,7 @@ def train_on_plouffe_copy(sess_args, load_params):
             mean_train_duration = 0
             #train_epoch_mean_loss = 0
             # tqdm iterator
-            num_train_steps = int(dataset_size*0.8/batch_size)
+            num_train_steps = int(dataset_size*train_ratio/batch_size)
             train_epoch = trange(num_train_steps, desc='Loss', leave=True)
             ### Training
             for _ in train_epoch:
@@ -372,8 +374,7 @@ def train_on_plouffe_copy(sess_args, load_params):
             mean_valid_duration = 0
             #valid_epoch_mean_loss = 0
             # tqdm iterator
-            #assert dataset_size*0.15 < batch_size
-            num_valid_steps = int(dataset_size*0.15/batch_size)
+            num_valid_steps = int(dataset_size*valid_ratio/batch_size)
             valid_epoch = trange(num_valid_steps, desc='Loss', leave=True)
             ### Validating
             for _ in valid_epoch:
@@ -384,7 +385,7 @@ def train_on_plouffe_copy(sess_args, load_params):
                 mean_valid_duration += duration
                 mean_valid_duration_list.append(mean_valid_duration)
                 step_desc = ('Epoch {}: loss = {} ({:.2f} sec/step)'.format(current_epoch, valid_batch_loss, duration))
-                valid_batch_loss_list.append(valid_batch_loss)
+                valid_batch_loss_list.append(valid_batch_loss[0])
                 valid_epoch_mean_loss += valid_batch_loss[0]
                 valid_epoch.set_description(step_desc)
                 valid_epoch.refresh()

@@ -1,1 +1,6 @@
-testlosses test = new
+lr05 lr = 0.5
+lr01 lr = 0.1
+lr005 lr = 0.05
+lr001 lr = 0.01
+lr0005 lr = 0.005
+lr0001 lr = 0.001
