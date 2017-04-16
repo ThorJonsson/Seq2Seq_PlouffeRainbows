@@ -22,6 +22,8 @@ TensorFlow implementation of a novel open-source Seq2SeqRegression API for perfo
 
 The Plouffe dataset is already included. A dataset of multidimensional vectors that represent the Plouffe Graph gets constructed during training. The dataset can be configured easily in the `plouffe.yml` file inside the `configs` folder.
 
+![Plouffe Graph](/plouffe/plouffe_graph.png)
+
 ## IPython Notebook
 
 An IPython Notebook of the Seq2Seq Regression model can be found inside the `notebooks` folder. This notebook serves to complement the paper and walks you through the computational graph. It also provides a background of the Plouffe Graph dataset.
