@@ -1,4 +1,4 @@
-# DLFractalSequences
+# Seq2Seq_PlouffeRainbows
 
 TensorFlow implementation of a novel open-source Seq2SeqRegression API for performing a wide range of automatic feature extraction tasks outside of NLP. This general purpose Sequence-to-Sequence Regression model can predict a sequence of multidimensional vectors based on previous observations. The system of study being analyzed here is the Plouffe Graph, a graph by Canadian mathematician Simon Plouffe in 1974-1979. More information about the Plouffe Graph can be found here: [Times Tables, Mandelbrot and the Heart of Mathematics](https://www.youtube.com/watch?v=qhbuKbxJsk8).
 
@@ -13,6 +13,7 @@ TensorFlow implementation of a novel open-source Seq2SeqRegression API for perfo
 	* [Docker: Installation](#docker-installation)
 	* [Docker: Train](#docker-train)
 * [Sharcnet](#sharcnet)
+* [IPython Notebook](#ipython-notebook)
 * [Future Work](#future-work)
 
 * * *
@@ -113,6 +114,16 @@ python train_manyjobs.py -c configs/plouffe_sharcnet.yml
 
 Note: The training inputs (i.e. dataset parameters, hyperparameters etc.) for training on a `sharcnet` machine can be modified in the `plouffe.yml` inside the `configs` folder. You must specify `train` option inside the YAML config file to be either `copper` or `local` when training on sharcnet.
 
+## IPython Notebook
+
+An IPython Notebook of the Seq2Seq Regression model can be found inside the `notebooks` folder. This notebook serves to complement the paper and walks you through the computational graph. It also provides a background of the Plouffe Graph dataset.
+
+In order to see the interactive graphics of the Seq2Seq Regression model's predictions, you will need to download this pre-trained model at the Google Drive link,
+
+https://drive.google.com/open?id=0B86gEeQqfnjtMERTV2tjLWMwNnc
+
+After downloading, you need to move/copy the `lr0002` folder that was downloaded from the Google Drive link into the `logs` folder.
+
 ## Future Work
 
 1. Perform futher analysis on the Plouffe Graph. We particularly want to analyze how arithmetic in embedding space corresponds to the group arithmetic in input space, and establish strong baselines in relation to that.
@@ -121,4 +132,6 @@ Note: The training inputs (i.e. dataset parameters, hyperparameters etc.) for tr
 
 3. Explore more datasets (i.e. video sequences) which would leverage the automatic feature extraction functionality of the Seq2Seq Regression model. 
 
+* * * 
+=======
 * * * 
